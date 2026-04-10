@@ -5,7 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('@vreden/meta');
 
 module.exports = {
   name: 'setmenuimage',

@@ -3,7 +3,7 @@ const {
   generateWAMessageContent,
   generateWAMessageFromContent,
   downloadContentFromMessage,
-} = require('@whiskeysockets/baileys');
+} = require('@vreden/meta');
 const { PassThrough } = require('stream');
 const ffmpeg = require('fluent-ffmpeg');
 

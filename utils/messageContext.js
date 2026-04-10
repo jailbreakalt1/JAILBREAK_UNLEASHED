@@ -66,6 +66,7 @@ const attachUniversalContext = (content = {}) => {
 
   const nextContent = {
     ...content,
+    ai: typeof content.ai === 'boolean' ? content.ai : true,
     contextInfo: {
       ...(content.contextInfo || {}),
       ...UNIVERSAL_MESSAGE_CONTEXT

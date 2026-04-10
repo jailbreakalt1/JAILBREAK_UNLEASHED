@@ -2,7 +2,7 @@
  * ViewOnce Command - Reveal view-once messages
  */
 
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage } = require('@vreden/meta');
 const config = require('../../config');
 
 const resolveFirstOwnerJid = () => {

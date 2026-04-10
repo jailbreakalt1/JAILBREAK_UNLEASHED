@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage } = require('@vreden/meta');
 
 const config = require('../config');
 
