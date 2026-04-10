@@ -13,7 +13,7 @@ module.exports = {
     sessionName: 'session',
     sessionID: process.env.SESSION_ID || '',
     newsletterJid: '120363161513685998@newsletter', // Newsletter JID for menu forwarding
-    updateZipUrl: 'https://github.com/jailbreakalt1/JAILBREAK-XMD/archive/refs/heads/main.zip', // URL to latest code zip for .update command
+    updateZipUrl: 'https://github.com/jailbreakalt1/JAILBREAK_UNLEASHED/archive/refs/heads/main.zip',
     
     // Sticker Configuration
     packname: 'JAILBREAK-XMD',
