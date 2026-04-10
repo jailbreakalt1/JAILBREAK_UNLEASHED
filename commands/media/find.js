@@ -1,6 +1,6 @@
 const ACRCloud = require('acrcloud');
 const yts = require('yt-search');
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('@vreden/meta');
 
 const SONG_REQUEST_CHANNEL_LINK = 'https://whatsapp.com/channel/0029VagJIAr3bbVzV70jSU1p';
 const FALLBACK_THUMBNAIL = 'https://files.catbox.moe/s80m7e.png';

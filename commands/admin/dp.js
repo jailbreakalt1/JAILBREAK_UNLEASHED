@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage } = require('@vreden/meta');
 const { getTempDir, deleteTempFile } = require('../../utils/tempManager');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;

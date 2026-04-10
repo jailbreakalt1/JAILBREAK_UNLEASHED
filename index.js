@@ -60,7 +60,7 @@ const {
   Browsers,
   fetchLatestBaileysVersion,
   downloadMediaMessage
-} = require('@whiskeysockets/baileys');
+} = require('@vreden/meta');
 const qrcode = require('qrcode-terminal');
 const config = require('./config');
 if (config.timezone && !process.env.TZ) process.env.TZ = config.timezone;
