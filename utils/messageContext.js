@@ -34,8 +34,8 @@ const decorateText = (value) => {
   const firstLine = lines[0] || '';
   const remainingLines = lines.slice(1).join('\n');
   const body = [
-    `‧₊˚🕷‧₊˚  ${firstLine} ༝ `,
-    remainingLines ? `${remainingLines}🕸ཐི༏ཋྀ🕸️` : '🕸ཐི༏ཋྀ🕸️'
+    `‧₊˚🃜🃚🃖🃁🂭🂺‧₊˚  ${firstLine} ̤̮̆̈ `,
+    remainingLines ? `${remainingLines}ᯓ➤` : '🗁'
   ].join('\n');
 
   return `*╔═══════════════════╗*\n`
@@ -43,6 +43,7 @@ const decorateText = (value) => {
     + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
     + `${body}\n\n`
     + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+    + `⎛⎝( ` ᢍ ´ )⎠⎞ᵐᵘʰᵃʰᵃ\n`
     + `> ${dateLine}\n`
     + `> ${timeLine}\n`
     + `> ${timezoneLine}\n`
