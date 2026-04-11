@@ -43,7 +43,7 @@ const decorateText = (value) => {
     + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
     + `${body}\n\n`
     + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
-    + `⎛⎝( ` ᢍ ´ )⎠⎞ᵐᵘʰᵃʰᵃ\n`
+    + `⎛⎝( ﾒ ཀ ﾒ )⎠⎞ᵐᵘʰᵃʰᵃ\n`
     + `> ${dateLine}\n`
     + `> ${timeLine}\n`
     + `> ${timezoneLine}\n`
