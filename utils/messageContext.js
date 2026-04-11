@@ -34,16 +34,16 @@ const decorateText = (value) => {
   const firstLine = lines[0] || '';
   const remainingLines = lines.slice(1).join('\n');
   const body = [
-    `‧₊˚🃜🃚🃖🃁🂭🂺‧₊˚  ${firstLine} ̤̮̆̈ `,
+    `‧₊˚♕‧₊˚  ${firstLine} ̤̮̆̈ `,
     remainingLines ? `${remainingLines}ᯓ➤` : '🗁'
   ].join('\n');
 
   return `*╔═══════════════════╗*\n`
     + `*║   ₊˚⊹ ᰔ⋆ JAIL BREAK.ai ₊˚ෆ     ║*\n\n`
-    + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+    + `> ⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
     + `${body}\n\n`
-    + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
-    + `⎛⎝( ﾒ ཀ ﾒ )⎠⎞ᵐᵘʰᵃʰᵃ\n`
+    + `> ⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+    + `> ▶︎•၊၊||၊|။|||||။၊|။|၊၊||၊၊၊၊•\n`
     + `> ${dateLine}\n`
     + `> ${timeLine}\n`
     + `> ${timezoneLine}\n`
