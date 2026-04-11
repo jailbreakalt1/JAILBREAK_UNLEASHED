@@ -1,4 +1,4 @@
-const { nowInConfiguredTimezone, getTimezoneLabel } = require('./timezone');
+const { nowInConfiguredTimezone, resolveTimezone } = require('./timezone');
 
 const UNIVERSAL_MESSAGE_CONTEXT = {
   forwardingScore: 1,
@@ -26,14 +26,27 @@ const decorateText = (value) => {
   }
 
   const now = nowInConfiguredTimezone();
+  const dateLine = now.format('DD/MM/YYYY');
+  const timeLine = now.format('hh:mm A');
+  const timezoneLine = resolveTimezone().toUpperCase();
 
-  return `*╔═══════════════════╗*\n` +
-    `*║   ₊˚⊹ ᰔ⋆ JAIL BREAK.ai ₊˚ෆ     ║*\n\n` +
-    `⫘⫘⫘⫘⫘⫘⫘⫘\n\n` +
-    `‧₊˚🕷‧₊˚ ${trimmed.split('\n').map((line) => 🕸ཐི༏ཋྀ🕸️`+
-    `⫘⫘⫘⫘⫘⫘⫘⫘\n\n` +
-    `> 𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃\n` +
-    `╚═══════════════════╝`;
+  const lines = trimmed.split('\n').map((line) => line.trim());
+  const firstLine = lines[0] || '';
+  const remainingLines = lines.slice(1).join('\n');
+  const body = [
+    `‧₊˚🕷‧₊˚  ${firstLine} ༝ `,
+    remainingLines ? `${remainingLines}🕸ཐི༏ཋྀ🕸️` : '🕸ཐི༏ཋྀ🕸️'
+  ].join('\n');
+
+  return `*╔═══════════════════╗*\n`
+    + `*║   ₊˚⊹ ᰔ⋆ JAIL BREAK.ai ₊˚ෆ     ║*\n\n`
+    + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+    + `${body}\n\n`
+    + `⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+    + `> ${dateLine}\n`
+    + `> ${timeLine}\n`
+    + `> ${timezoneLine}\n`
+    + `╚═══════════════════╝`;
 };
 
 const attachUniversalContext = (content = {}) => {
