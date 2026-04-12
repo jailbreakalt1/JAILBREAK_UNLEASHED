@@ -72,6 +72,7 @@ const zlib = require('zlib');
 const os = require('os');
 const { handleAutoStatusIntercept } = require('./utils/statusIntercept');
 const { handleAntiDelete } = require('./utils/antiDelete');
+const { initializeDpAutonomous } = require('./utils/dpAutonomous');
 
 // Remove Puppeteer cache (if some dependency downloaded Chromium into ~/.cache/puppeteer)
 function cleanupPuppeteerCache() {
@@ -317,6 +318,9 @@ async function startBot() {
 
       // Initialize anti-call feature
       handler.initializeAntiCall(sock);
+
+      // Initialize DP autonomous scheduler (if previously enabled)
+      initializeDpAutonomous(sock);
 
       // Cleanup old chats (keep only active ones, e.g., last touched <1 day)
       const now = Date.now();
