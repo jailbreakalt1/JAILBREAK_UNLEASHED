@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, '../database/dpAutonomous.json');
-const DEFAULT_IMAGES_DIR = path.resolve(process.cwd(), '../images');
+const DEFAULT_IMAGES_DIR = path.join(__dirname, '../images');
 const MIN_INTERVAL_MS = 20 * 60 * 1000;
 const MAX_INTERVAL_MS = 30 * 60 * 1000;
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
@@ -18,7 +18,7 @@ function ensureDatabaseFile() {
   }
 
   if (!fs.existsSync(DB_PATH)) {
-    saveState(defaultState());
+    fs.writeFileSync(DB_PATH, JSON.stringify(defaultState(), null, 2), 'utf8');
   }
 }
 
