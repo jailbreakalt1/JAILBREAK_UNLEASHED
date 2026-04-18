@@ -789,6 +789,16 @@ const handleMessage = async (sock, msg) => {
     if (command.ownerOnly && !isOwner(sender)) {
       return sock.sendMessage(from, { text: config.messages.ownerOnly }, { quoted: msg });
     }
+
+    // Sudo allow gate: in public mode, a command can be restricted to specific groups
+    // by saving allowed command names for each group via .sudo allow.
+    if (!config.selfMode && isGroup && !isOwner(sender)) {
+      const commandKey = (command.name || commandName).toLowerCase();
+      const isAllowedInThisGroup = database.isGroupAllowedForCommand(from, commandKey);
+      if (!isAllowedInThisGroup) {
+        return;
+      }
+    }
     
     if (command.modOnly && !isMod(sender) && !isOwner(sender)) {
       return sock.sendMessage(from, { text: '🔒 This command is only for moderators!' }, { quoted: msg });
