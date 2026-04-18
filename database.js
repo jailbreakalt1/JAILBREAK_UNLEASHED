@@ -11,6 +11,7 @@ const GROUPS_DB = path.join(DB_PATH, 'groups.json');
 const USERS_DB = path.join(DB_PATH, 'users.json');
 const WARNINGS_DB = path.join(DB_PATH, 'warnings.json');
 const MODS_DB = path.join(DB_PATH, 'mods.json');
+const SUDO_ALLOW_DB = path.join(DB_PATH, 'sudoAllow.json');
 
 // Initialize database directory
 if (!fs.existsSync(DB_PATH)) {
@@ -28,6 +29,7 @@ initDB(GROUPS_DB, {});
 initDB(USERS_DB, {});
 initDB(WARNINGS_DB, {});
 initDB(MODS_DB, { moderators: [] });
+initDB(SUDO_ALLOW_DB, { groups: {} });
 
 // Read database
 const readDB = (filePath) => {
@@ -162,6 +164,51 @@ const isModerator = (userId) => {
   return mods.includes(userId);
 };
 
+// Sudo allow system
+const getSudoAllowData = () => {
+  const data = readDB(SUDO_ALLOW_DB);
+  if (!data.groups || typeof data.groups !== 'object') {
+    data.groups = {};
+    writeDB(SUDO_ALLOW_DB, data);
+  }
+  return data;
+};
+
+const getAllowedCommandsForGroup = (groupId) => {
+  const data = getSudoAllowData();
+  return data.groups[groupId] || [];
+};
+
+const isGroupAllowedForCommand = (groupId, commandName) => {
+  const allowed = getAllowedCommandsForGroup(groupId);
+  if (!Array.isArray(allowed) || allowed.length === 0) return false;
+  return allowed.includes('*') || allowed.includes(commandName);
+};
+
+const addGroupCommandAllow = (groupId, commandName) => {
+  const data = getSudoAllowData();
+  if (!Array.isArray(data.groups[groupId])) {
+    data.groups[groupId] = [];
+  }
+
+  if (!data.groups[groupId].includes(commandName)) {
+    data.groups[groupId].push(commandName);
+  }
+  return writeDB(SUDO_ALLOW_DB, data);
+};
+
+const removeGroupCommandAllow = (groupId, commandName) => {
+  const data = getSudoAllowData();
+  if (!Array.isArray(data.groups[groupId])) return false;
+
+  data.groups[groupId] = data.groups[groupId].filter((cmd) => cmd !== commandName);
+  if (data.groups[groupId].length === 0) {
+    delete data.groups[groupId];
+  }
+
+  return writeDB(SUDO_ALLOW_DB, data);
+};
+
 module.exports = {
   getGroupSettings,
   updateGroupSettings,
@@ -174,5 +221,9 @@ module.exports = {
   getModerators,
   addModerator,
   removeModerator,
-  isModerator
+  isModerator,
+  getAllowedCommandsForGroup,
+  isGroupAllowedForCommand,
+  addGroupCommandAllow,
+  removeGroupCommandAllow
 };
