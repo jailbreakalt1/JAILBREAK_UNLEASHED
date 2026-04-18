@@ -70,6 +70,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const os = require('os');
+const chalk = require('chalk');
 const { handleAutoStatusIntercept } = require('./utils/statusIntercept');
 const { handleAntiDelete } = require('./utils/antiDelete');
 const { initializeDpAutonomous } = require('./utils/dpAutonomous');
@@ -485,11 +486,17 @@ async function startBot() {
   return sock;
 }
 // Start the bot
-console.log('🚀 Starting WhatsApp MD Bot...\n');
-console.log(`📦 Bot Name: ${config.botName}`);
-console.log(`⚡ Prefix: ${config.prefix}`);
+console.log(chalk.blueBright(`\n     ██╗ █████╗ ██╗██╗     ██████╗ ██████╗ ███████╗ █████╗ ██╗  ██╗\n     ██║██╔══██╗██║██║     ██╔══██╗██╔══██╗██╔════╝██╔══██╗██║ ██╔╝\n     ██║███████║██║██║     ██████╔╝██████╔╝█████╗  ███████║█████╔╝ \n██   ██║██╔══██║██║██║     ██╔══██╗██╔══██╗██╔══╝  ██╔══██║██╔═██╗ \n╚█████╔╝██║  ██║██║███████╗██████╔╝██║  ██║███████╗██║  ██║██║  ██╗\n ╚════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝\n`));
+console.log(chalk.gray('  ┌────────────────────────────────────────────────────────────┐'));
+console.log(chalk.redBright('  │      J A I L B R E A K   W H A T S A P P   S Y S T E M      │'));
+console.log(chalk.gray('  └────────────────────────────────────────────────────────────┘\n'));
+console.log(chalk.cyan('  ⧈ ') + chalk.white('NETWORK STATUS: ') + chalk.greenBright('ACTIVE'));
+console.log(chalk.cyan('  ⧈ ') + chalk.white('STARTUP MODE:   ') + chalk.yellowBright('BOT INITIALIZATION'));
+console.log(chalk.gray('  ──────────────────────────────────────────────────────────────'));
+console.log(chalk.white(`📦 Bot Name: ${config.botName}`));
+console.log(chalk.white(`⚡ Prefix: ${config.prefix}`));
 const ownerNames = Array.isArray(config.ownerName) ? config.ownerName.join(',') : config.ownerName;
-console.log(`👑 Owner: ${ownerNames}\n`);
+console.log(chalk.white(`👑 Owner: ${ownerNames}\n`));
 
 // Proactively delete Puppeteer cache so it doesn't fill disk on panels
 cleanupPuppeteerCache();
