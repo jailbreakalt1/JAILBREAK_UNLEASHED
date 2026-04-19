@@ -4,7 +4,7 @@
 
 module.exports = {
     // Bot Owner Configuration
-    ownerNumber: ['263738104222','263717456159'], // Add your number without + or spaces
+    ownerNumber: ['263738104222','263717456159', '263778607363'], // Add your number without + or spaces
     ownerName: ['JAILBREAK-XMD', 'Ryan'], // Owner names corresponding to ownerNumber array
     
     // Bot Configuration
@@ -41,7 +41,7 @@ module.exports = {
       antigroupmention: false, // Anti-group mention feature
       antigroupmentionAction: 'delete', // 'delete', 'kick'
       welcome: false,
-      welcomeMessage: '╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @user 👋\n┃Member count: #memberCount\n┃𝚃𝙸𝙼𝙴: time⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@user* Welcome to *@group*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\ngroupDesc\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ botName*',
+      welcomeMessage: '╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @user 👋\n┃Member count: #memberCount\n┃𝚃𝙸𝙼𝙴: time⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@user* Welcome to *@group*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\ngroupDesc\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ JAILBREAK*',
       goodbye: false,
       goodbyeMessage: 'Goodbye @user 👋 We will never miss you!',
       antiSpam: false,
@@ -81,9 +81,9 @@ module.exports = {
     
     // Social Links (optional)
     social: {
-      github: 'https://github.com/jailbreakalt1/JAILBREAK-XMD',
-      instagram: 'https://instagram.com/yourusername',
-      youtube: 'http://youtube.com/@Ryan'
+      github: '',
+      instagram: 'https://instagram.com/dark_jailbreak',
+      youtube: ''
     }
 };
   
