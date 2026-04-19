@@ -34,21 +34,19 @@ const decorateText = (value) => {
   const firstLine = lines[0] || '';
   const remainingLines = lines.slice(1).join('\n');
   const body = [
-    `‧₊˚♕‧₊˚  ${firstLine} ̤̮̆̈ `,
+    `‧₊˚♕‧₊˚  ${firstLine} ̤̮̆̈ ₊˚⊹`,
     remainingLines ? `${remainingLines}ᯓ➤` : '🗁'
   ].join('\n');
 
-  return `*╔═══════════════════╗*\n`
-    + `*║   ₊˚⊹ ᰔ⋆ JAIL BREAK.ai ₊˚ෆ     ║*\n\n`
-    + `> ⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
+  return `*⧯ 𝙹𝙰𝙸𝙻𝙱𝚁𝙴𝙰𝙺_𝙰𝙸 ☬*\n`
+    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n`
     + `${body}\n\n`
-    + `> ⫘⫘⫘⫘⫘⫘⫘⫘\n\n`
     + `> ▶︎•၊၊||၊|။|||||။၊|။|၊၊||၊၊၊၊•\n`
     + `> ${dateLine}\n`
     + `> ${timeLine}\n`
     + `> ${timezoneLine}\n`
     + `> 𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃\n`
-    + `╚═══════════════════╝`;
+    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯`;
 };
 
 const attachUniversalContext = (content = {}) => {
