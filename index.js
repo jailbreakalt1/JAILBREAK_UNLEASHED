@@ -82,9 +82,7 @@ function cleanupPuppeteerCache() {
     const cacheDir = path.join(home, '.cache', 'puppeteer');
 
     if (fs.existsSync(cacheDir)) {
-      console.log('🧹 Removing Puppeteer cache at:', cacheDir);
       fs.rmSync(cacheDir, { recursive: true, force: true });
-      console.log('✅ Puppeteer cache removed');
     }
   } catch (err) {
     console.error('⚠️ Failed to cleanup Puppeteer cache:', err.message || err);
@@ -284,7 +282,6 @@ async function startBot() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n\n📱 Scan this QR code with WhatsApp:\n');
       qrcode.generate(qr, { small: true });
     }
 
@@ -303,14 +300,7 @@ async function startBot() {
       if (shouldReconnect) {
         setTimeout(() => startBot(), 3000);
       }
-    } else if (connection === 'open') {
-      console.log('\n✅ Bot connected successfully!');
-      console.log(`📱 Bot Number: ${sock.user.id.split(':')[0]}`);
-      console.log(`🤖 Bot Name: ${config.botName}`);
-      console.log(`⚡ Prefix: ${config.prefix}`);
-      const ownerNames = Array.isArray(config.ownerName) ? config.ownerName.join(',') : config.ownerName;
-      console.log(`👑 Owner: ${ownerNames}\n`);
-      console.log('Bot is ready to receive messages!\n');
+    };
 
       // Set bot status
       if (config.autoBio) {
@@ -332,7 +322,6 @@ async function startBot() {
         }
       }
       console.log(`🧹 Store cleaned. Active chats: ${store.messages.size}`);
-    }
   });
 
   // Credentials update handler
@@ -486,6 +475,7 @@ async function startBot() {
   return sock;
 }
 // Start the bot
+console.clear();
 console.log(chalk.blueBright(`\n     ██╗ █████╗ ██╗██╗     ██████╗ ██████╗ ███████╗ █████╗ ██╗  ██╗\n     ██║██╔══██╗██║██║     ██╔══██╗██╔══██╗██╔════╝██╔══██╗██║ ██╔╝\n     ██║███████║██║██║     ██████╔╝██████╔╝█████╗  ███████║█████╔╝ \n██   ██║██╔══██║██║██║     ██╔══██╗██╔══██╗██╔══╝  ██╔══██║██╔═██╗ \n╚█████╔╝██║  ██║██║███████╗██████╔╝██║  ██║███████╗██║  ██║██║  ██╗\n ╚════╝ ╚═╝  ╚═╝╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝\n`));
 console.log(chalk.gray('  ┌────────────────────────────────────────────────────────────┐'));
 console.log(chalk.redBright('  │      J A I L B R E A K   W H A T S A P P   S Y S T E M      │'));
@@ -493,10 +483,6 @@ console.log(chalk.gray('  └─────────────────
 console.log(chalk.cyan('  ⧈ ') + chalk.white('NETWORK STATUS: ') + chalk.greenBright('ACTIVE'));
 console.log(chalk.cyan('  ⧈ ') + chalk.white('STARTUP MODE:   ') + chalk.yellowBright('BOT INITIALIZATION'));
 console.log(chalk.gray('  ──────────────────────────────────────────────────────────────'));
-console.log(chalk.white(`📦 Bot Name: ${config.botName}`));
-console.log(chalk.white(`⚡ Prefix: ${config.prefix}`));
-const ownerNames = Array.isArray(config.ownerName) ? config.ownerName.join(',') : config.ownerName;
-console.log(chalk.white(`👑 Owner: ${ownerNames}\n`));
 
 // Proactively delete Puppeteer cache so it doesn't fill disk on panels
 cleanupPuppeteerCache();
