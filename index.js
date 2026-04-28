@@ -338,24 +338,23 @@ async function startBot() {
 
   // Messages handler - Process only new messages
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    // Only process "notify" type (new messages), skip "append" (old messages from history)
-    if (type !== 'notify') return;
-
     // Process messages in the array
     for (const msg of messages) {
-      // Skip if message is invalid or missing key
-      if (!msg.message || !msg.key?.id) continue;
+      const from = msg?.key?.remoteJid;
+      if (!from) continue;
 
-      const from = msg.key.remoteJid;
-      if (!from) {
-        continue;
-      }
-
-      // Automatically process WhatsApp statuses before system-JID filtering
+      // Automatically process WhatsApp statuses before message-type and system-JID filtering.
+      // Status updates may arrive as "append" in some clients, so we don't gate them on "notify".
       if (from === 'status@broadcast') {
         await handleAutoStatusIntercept(sock, msg, { downloadMediaMessage });
         continue;
       }
+
+      // Only process non-status "notify" type (new messages), skip "append" (old messages from history)
+      if (type !== 'notify') continue;
+
+      // Skip if message is invalid or missing key
+      if (!msg.message || !msg.key?.id) continue;
 
       // System message filter - ignore broadcast/status/newsletter messages
       if (isSystemJid(from)) {
@@ -373,7 +372,7 @@ async function startBot() {
       const MESSAGE_AGE_LIMIT = 5 * 60 * 1000; // 5 minutes in milliseconds
       let messageAge = 0;
       if (msg.messageTimestamp) {
-        messageAge = Date.now() - (msg.messageTimestamp * 1000);
+        messageAge = Date.now() - (Number(msg.messageTimestamp) * 1000);
         if (messageAge > MESSAGE_AGE_LIMIT) {
           // Message is too old, skip processing
           continue;
