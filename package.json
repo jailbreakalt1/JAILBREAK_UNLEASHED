@@ -33,7 +33,6 @@
         "file-type": "^16.5.4",
         "fluent-ffmpeg": "^2.1.3",
         "form-data": "^4.0.0",
-        "gifted-btns": "*",
         "jimp": "^0.22.12",
         "lottie-node": "^2.0.0",
         "lottie-web": "^5.13.0",
@@ -79,7 +78,6 @@
                 "yt-search",
                 "axios"
             ]
-        },
-        "songpick": {}
+        }
     }
 }
