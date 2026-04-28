@@ -55,6 +55,7 @@ const config = {
     // API Keys (add your own)
     apiKeys: {
       // Add API keys here if needed
+      JAILBREAKAPI: process.env.JAILBREAKAPI || '',
       openai: '',
       deepai: '',
       remove_bg: ''
