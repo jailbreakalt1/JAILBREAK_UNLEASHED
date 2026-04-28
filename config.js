@@ -2,7 +2,7 @@
  * Global Configuration for WhatsApp MD Bot
  */
 
-module.exports = {
+const config = {
     // Bot Owner Configuration
     ownerNumber: ['263738104222','263717456159', '263778607363'], // Add your number without + or spaces
     ownerName: ['JAILBREAK-XMD', 'Ryan'], // Owner names corresponding to ownerNumber array
@@ -86,4 +86,14 @@ module.exports = {
       youtube: ''
     }
 };
+
+/**
+ * Backward-compatible helper for commands that expect per-socket config.
+ * Current project uses a single global config object.
+ */
+config.getConfigFromSocket = function getConfigFromSocket() {
+  return config;
+};
+
+module.exports = config;
   

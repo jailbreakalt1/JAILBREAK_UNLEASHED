@@ -3,11 +3,8 @@
  * Show all commands with descriptions
  */
 
-const fs = require('fs');
-const path = require('path');
 const config = require('../../config');
 const { loadCommands } = require('../../utils/commandLoader');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
   name: 'list',
@@ -53,35 +50,8 @@ module.exports = {
       
       menu = menu.trimEnd();
       
-      
-      // Send message with buttons using gifted-btns
-      await sendButtons(sock, extra.from, {
-        title: '',
-        text: menu,
-        footer: `> *Powered by ${config.botName}*`,
-        buttons: [
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: 'Youtube',
-              url: config.social?.youtube || 'http://youtube.com/@Ryan'
-            })
-          },
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: 'Visit Bot Repo',
-              url: config.social?.github || 'https://github.com/jailbreakalt1/JAILBREAK-XMD'
-            })
-          },
-          {
-            name: 'cta_url',
-            buttonParamsJson: JSON.stringify({
-              display_text: 'Join Channel',
-              url: 'https://whatsapp.com/channel/0029Va90zAnIHphOuO8Msp3A'
-            })
-          }
-        ]
+      await sock.sendMessage(extra.from, {
+        text: `${menu}\n\n> *Powered by ${config.botName}*`
       }, { quoted: msg });
       
     } catch (err) {

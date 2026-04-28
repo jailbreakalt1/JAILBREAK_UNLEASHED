@@ -110,12 +110,19 @@ module.exports = {
         fileName,
         caption: buildJailbreakCaption({ info: song.info, author: song.author, ago: song.ago, pushName, emoji: '🎧' }),
         contextInfo: {
+          forwardingScore: 1,
+          isForwarded: true,
+          forwardedNewsletterMessageInfo: {
+            newsletterJid: config.newsletterJid || '120363161513685998@newsletter',
+            newsletterName: config.botName || 'JAILBREAK-XMD',
+            serverMessageId: -1
+          },
           externalAdReply: {
             title: song.info.title,
             body: 'JAILBREAK SOURCE',
             thumbnailUrl: song.info.thumbnail || 'https://files.catbox.moe/s80m7e.png',
             mediaType: 1,
-            sourceUrl: song.url
+            sourceUrl: CHANNEL_URL || song.url
           }
         }
       }, { quoted: msg, __skipStyle: true });
