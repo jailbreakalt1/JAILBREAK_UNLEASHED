@@ -6,6 +6,7 @@ const config = require('./config');
 const database = require('./database');
 const { loadCommands } = require('./utils/commandLoader');
 const { addMessage } = require('./utils/groupstats');
+const { handleJailbreakChatbot } = require('./utils/jailbreakChatbot');
 const { jidDecode, jidEncode } = require('@vreden/meta');
 const fs = require('fs');
 const path = require('path');
@@ -769,6 +770,12 @@ const handleMessage = async (sock, msg) => {
     }
     
     
+    // DM AI chatbot (non-command messages only, no owner gate)
+    if (!isGroup && body && !body.startsWith(config.prefix) && !msg.key.fromMe) {
+      const wasHandled = await handleJailbreakChatbot(sock, msg, body);
+      if (wasHandled) return;
+    }
+
     // Check if message starts with prefix
     if (!body.startsWith(config.prefix)) return;
     

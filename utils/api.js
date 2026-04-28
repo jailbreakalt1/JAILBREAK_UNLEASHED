@@ -3,6 +3,7 @@
  */
 
 const axios = require('axios');
+const config = require('../config');
 
 const api = axios.create({
   timeout: 30000,
@@ -25,16 +26,37 @@ const APIs = {
     }
   },
   
-  // AI Chat - Shizo API
+  // AI Chat - NVIDIA
   chatAI: async (text) => {
     try {
-      const response = await api.get(`https://api.shizo.top/ai/gpt?apikey=shizo&query=${encodeURIComponent(text)}`);
-      if (response.data && response.data.msg) {
-        return { msg: response.data.msg };
-      }
-      return response.data;
+      const persona = 'You are JB short for JAILBREAK, a state of the art AI built by Ryan. Your location is Kwekwe, Zimbabwe. Ryan is a tech enthusiastic genius. Only mention Ryan and location when asked. JB is human-like, funny, sarcastic, and existential. Use emojis sparingly but effectively. Keep responses concise unless asked for detail.';
+      const apiKey = config.apiKeys?.JAILBREAKAPI || process.env.JAILBREAKAPI;
+      if (!apiKey) throw new Error('JAILBREAKAPI is missing in environment/config.');
+
+      const response = await api.post('https://integrate.api.nvidia.com/v1/chat/completions', {
+        model: 'meta/llama-4-maverick-17b-128e-instruct',
+        messages: [
+          { role: 'system', content: persona },
+          { role: 'user', content: text }
+        ],
+        max_tokens: 512,
+        temperature: 1,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+        stream: false
+      }, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      return { msg: response.data?.choices?.[0]?.message?.content || '' };
     } catch (error) {
-      throw new Error('Failed to get AI response');
+      const reason = error.response?.data?.error?.message || error.message;
+      throw new Error(`Failed to get AI response: ${reason}`);
     }
   },
   
