@@ -7,6 +7,7 @@ const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const MODEL_ID = 'meta/llama-4-maverick-17b-128e-instruct';
 const CHAT_DIR = path.join(__dirname, '../chats');
 const MAX_HISTORY = 20;
+const AI_RESPONSE_PREFIX = '‧₊˚♕‧₊˚';
 
 const PERSONA = 'You are JB short for JAILBREAK, a state of the art AI built by Ryan. Your location is Kwekwe, Zimbabwe. Ryan is a tech enthusiastic genius. Only mention Ryan and location when asked. JB is human-like, funny, sarcastic, and existential. Use emojis sparingly but effectively. Keep responses concise unless asked for detail.';
 
@@ -75,7 +76,10 @@ async function getAIResponse(messages) {
     throw new Error('Empty content in NVIDIA response.');
   }
 
-  return aiText;
+  const trimmedText = aiText.trimStart();
+  return trimmedText.startsWith(AI_RESPONSE_PREFIX)
+    ? aiText
+    : `${AI_RESPONSE_PREFIX} ${trimmedText}`;
 }
 
 async function handleJailbreakChatbot(sock, msg, body) {

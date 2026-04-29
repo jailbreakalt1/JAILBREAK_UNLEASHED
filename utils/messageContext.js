@@ -11,6 +11,7 @@ const UNIVERSAL_MESSAGE_CONTEXT = {
 };
 
 const STYLE_BYPASS_PREFIXES = [
+  '‧₊˚♕‧₊˚',
   '*╔═══════════════════╗*',
   '╔═══════════════════╗',
   '⧯ *𝙹𝙰𝙸𝙻𝙱𝚁𝙴𝙰𝙺_𝙰𝙸* 𝙱𝚁𝙸𝙽𝙶𝚂 𝚈𝙾𝚄'
