@@ -5,8 +5,7 @@ const config = require('../config');
 
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const MODEL_ID = 'meta/llama-4-maverick-17b-128e-instruct';
-const CHAT_DIR = path.join(__dirname, '../chats');
-const MAX_HISTORY = 20;
+const CHAT_DIR = path.join(__dirname, '../database/chats');
 const AI_RESPONSE_PREFIX = '‧₊˚♕‧₊˚';
 
 const PERSONA = 'You are JB short for JAILBREAK, a state of the art AI built by Ryan. Your location is Kwekwe, Zimbabwe. Ryan is a tech enthusiastic genius. Only mention Ryan and location when asked. JB is human-like, funny, sarcastic, and existential. Use emojis sparingly but effectively. Keep responses concise unless asked for detail.';
@@ -15,8 +14,16 @@ if (!fs.existsSync(CHAT_DIR)) {
   fs.mkdirSync(CHAT_DIR, { recursive: true });
 }
 
-function getHistory(sender) {
-  const filePath = path.join(CHAT_DIR, `${sender}.json`);
+function getPhoneNumber(jid = '') {
+  return String(jid).split('@')[0] || 'unknown';
+}
+
+function getDisplayName(msg, phoneNumber) {
+  return msg.pushName || msg.notifyName || phoneNumber || 'user';
+}
+
+function getHistory(phoneNumber) {
+  const filePath = path.join(CHAT_DIR, `${phoneNumber}.json`);
   if (!fs.existsSync(filePath)) return [];
 
   try {
@@ -34,10 +41,12 @@ function getHistory(sender) {
   }
 }
 
-function saveHistory(sender, history) {
-  const filePath = path.join(CHAT_DIR, `${sender}.json`);
-  const trimmed = history.slice(-MAX_HISTORY);
-  fs.writeFileSync(filePath, JSON.stringify({ history: trimmed }, null, 2));
+function saveHistory(phoneNumber, title, history) {
+  const filePath = path.join(CHAT_DIR, `${phoneNumber}.json`);
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({ phoneNumber, title, history }, null, 2)
+  );
 }
 
 async function getAIResponse(messages) {
@@ -87,12 +96,16 @@ async function handleJailbreakChatbot(sock, msg, body) {
   if (!from || from.endsWith('@g.us')) return false;
 
   const sender = msg.key.participant || from;
-  const history = getHistory(sender);
+  const phoneNumber = getPhoneNumber(sender);
+  const displayName = getDisplayName(msg, phoneNumber);
+  const title = `JAILBREAK'S CHAT WITH ${displayName}`;
+
+  const history = getHistory(phoneNumber);
   const promptMessages = [...history, { role: 'user', content: body }];
 
   const aiText = await getAIResponse(promptMessages);
   const updated = [...history, { role: 'user', content: body }, { role: 'assistant', content: aiText }];
-  saveHistory(sender, updated);
+  saveHistory(phoneNumber, title, updated);
 
   await sock.sendMessage(from, { text: aiText }, { quoted: msg });
   return true;
