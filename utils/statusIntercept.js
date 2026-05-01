@@ -2,6 +2,7 @@
  * Auto Status Intercept - forwards viewed WhatsApp statuses to owner.
  */
 
+const chalk = require('chalk');
 const config = require('../config');
 
 const STATUS_REACTIONS = ['👍', '👀', '🔥', '🤐', '😮', '🍿', '💯', '😂', '👏', '🥂', '🤔', '🫡', '⚡', '🛸'];
@@ -35,6 +36,37 @@ const isOwnStatus = (sock, posterJid) => {
   return botIds.includes(posterJid);
 };
 
+
+
+const resolvePosterJid = (sock, msg = {}) => {
+  const candidates = [
+    msg?.key?.participant,
+    msg?.participant,
+    msg?.message?.protocolMessage?.key?.participant,
+    msg?.message?.messageContextInfo?.participant
+  ].filter(Boolean);
+
+  const firstValid = candidates.find((jid) => String(jid).includes('@'));
+  if (firstValid) return firstValid;
+
+  if (msg?.key?.fromMe && sock?.user?.id) {
+    const own = sock.user.id.split(':')[0];
+    if (own) return `${own}@s.whatsapp.net`;
+  }
+
+  return null;
+};
+
+const logInterceptStep = ({ logTag, cmdTag, pushName, senderNumber, mtype, time, body }) => {
+  console.log(
+    chalk.gray(`\n┌─── `) + chalk.cyan(`JAILBREAK INTERCEPT`) + chalk.gray(` ───\n`) +
+    chalk.gray(`│ `) + logTag + chalk.white(` From: ${pushName} (${senderNumber})\n`) +
+    chalk.gray(`│ `) + cmdTag + chalk.gray(` | Type: ${mtype} | Time: ${time}\n`) +
+    chalk.gray(`│ `) + chalk.magenta(`Content: `) + chalk.white((body || '').length > 50 ? (body || '').substring(0, 50) + '...' : (body || '')) + `\n` +
+    chalk.gray(`└───────────────────────────`)
+  );
+};
+
 const resolveOwnerJid = (sock) => {
   const ownerNumber = (Array.isArray(config.ownerNumber) ? config.ownerNumber : [])
     .map((num) => sanitizeNumberDigits(num))
@@ -48,7 +80,7 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
     const from = msg?.key?.remoteJid;
     if (from !== 'status@broadcast') return false;
 
-    const posterJid = msg.key?.participant || msg.participant;
+    const posterJid = resolvePosterJid(sock, msg);
     if (!posterJid || posterJid === 'status@broadcast' || isOwnStatus(sock, posterJid)) {
       return true;
     }
@@ -58,7 +90,9 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
     const targetJid = resolveOwnerJid(sock);
 
     try {
+      logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.cyan('trying to leave a view'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
       await sock.readMessages([msg.key]);
+      logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.green('view done now liking and reacting'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
       await sock.sendMessage(
         'status@broadcast',
         { react: { text: randomEmoji, key: msg.key } },
@@ -85,6 +119,16 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
 
     const displayName = (msg.pushName || posterNumber || 'Unknown').trim();
     const postedTime = formatTimestamp(msg.messageTimestamp);
+
+    logInterceptStep({
+      logTag: chalk.yellow('[STATUS]'),
+      cmdTag: chalk.cyan('status updated'),
+      pushName: displayName,
+      senderNumber: posterNumber || 'unknown',
+      mtype: messageType || 'unknown',
+      time: postedTime,
+      body
+    });
 
     const jbContext = {
       forwardingScore: 1,
@@ -135,7 +179,9 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
       }
     }
 
+    logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.blue('forwarding to ownerNumber'), pushName: displayName, senderNumber: posterNumber || 'unknown', mtype: messageType || 'unknown', time: postedTime, body });
     await sock.sendMessage(targetJid, messageToSend);
+    logInterceptStep({ logTag: chalk.green('[STATUS]'), cmdTag: chalk.green('success'), pushName: displayName, senderNumber: posterNumber || 'unknown', mtype: messageType || 'unknown', time: postedTime, body });
     console.log(`✅ [STATUS] Intercept logged: ${posterNumber}`);
     return true;
   } catch (error) {
