@@ -771,7 +771,7 @@ const handleMessage = async (sock, msg) => {
     
     
     // DM AI chatbot (non-command messages only, no owner gate)
-    if (!isGroup && body && !body.startsWith(config.prefix) && !msg.key.fromMe) {
+    if (!isGroup && !msg.key.fromMe && !body.startsWith(config.prefix) && (body || content.imageMessage)) {
       const wasHandled = await handleJailbreakChatbot(sock, msg, body);
       if (wasHandled) return;
     }
