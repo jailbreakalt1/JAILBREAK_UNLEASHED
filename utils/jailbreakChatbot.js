@@ -23,6 +23,21 @@ function getDisplayName(msg, phoneNumber) {
   return msg.pushName || msg.notifyName || phoneNumber || 'user';
 }
 
+function isAntisocialNumber(phoneNumber = '') {
+  const antisocial = config.antisocial;
+
+  if (!antisocial) return false;
+
+  const list = Array.isArray(antisocial)
+    ? antisocial
+    : String(antisocial).split(',');
+
+  return list
+    .map((entry) => String(entry).trim())
+    .filter(Boolean)
+    .includes(String(phoneNumber).trim());
+}
+
 function getHistory(phoneNumber) {
   const filePath = path.join(CHAT_DIR, `${phoneNumber}.json`);
   if (!fs.existsSync(filePath)) return [];
@@ -121,6 +136,7 @@ async function handleJailbreakChatbot(sock, msg, body) {
 
   const sender = msg.key.participant || from;
   const phoneNumber = getPhoneNumber(sender);
+  if (isAntisocialNumber(phoneNumber)) return false;
   const displayName = getDisplayName(msg, phoneNumber);
   const title = `JAILBREAK'S CHAT WITH ${displayName}`;
 
