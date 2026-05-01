@@ -40,14 +40,14 @@ const decorateText = (value) => {
   ].join('\n');
 
   return `*⧯ 𝙹𝙰𝙸𝙻𝙱𝚁𝙴𝙰𝙺_𝙰𝙸 ☬*\n`
-    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n`
+    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n`
     + `${body}\n\n`
     + `> ▶︎•၊၊||၊|။|||||။၊|။|၊၊||၊၊၊၊•\n`
     + `> ${dateLine}\n`
     + `> ${timeLine}\n`
     + `> ${timezoneLine}\n`
     + `> 𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃𝄃𝄃𝄂𝄂𝄀𝄁𝄃𝄂𝄂𝄃\n`
-    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯`;
+    + `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯`;
 };
 
 const attachUniversalContext = (content = {}) => {
