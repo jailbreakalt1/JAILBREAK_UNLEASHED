@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const { downloadMediaMessage } = require('@vreden/meta');
 const config = require('../config');
 
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
@@ -91,6 +92,29 @@ async function getAIResponse(messages) {
     : `${AI_RESPONSE_PREFIX} ${trimmedText}`;
 }
 
+
+
+async function maybeBuildImagePrompt(msg, userText = '') {
+  const imageMessage = msg?.message?.imageMessage;
+  if (!imageMessage) return null;
+
+  const mediaBuffer = await downloadMediaMessage(
+    msg,
+    'buffer',
+    {},
+    { logger: console, reuploadRequest: null }
+  );
+
+  const imageB64 = Buffer.from(mediaBuffer).toString('base64');
+  if (imageB64.length > 180_000) {
+    throw new Error('Image is too large for inline upload. Please send a smaller image.');
+  }
+
+  const mimetype = imageMessage.mimetype || 'image/jpeg';
+  const instruction = userText?.trim() || 'Describe this image briefly.';
+  return `${instruction} <img src="data:${mimetype};base64,${imageB64}" />`;
+}
+
 async function handleJailbreakChatbot(sock, msg, body) {
   const from = msg.key?.remoteJid;
   if (!from || from.endsWith('@g.us')) return false;
@@ -101,10 +125,14 @@ async function handleJailbreakChatbot(sock, msg, body) {
   const title = `JAILBREAK'S CHAT WITH ${displayName}`;
 
   const history = getHistory(phoneNumber);
-  const promptMessages = [...history, { role: 'user', content: body }];
+  const imagePrompt = await maybeBuildImagePrompt(msg, body);
+  const userContent = imagePrompt || body;
+  if (!userContent) return false;
+
+  const promptMessages = [...history, { role: 'user', content: userContent }];
 
   const aiText = await getAIResponse(promptMessages);
-  const updated = [...history, { role: 'user', content: body }, { role: 'assistant', content: aiText }];
+  const updated = [...history, { role: 'user', content: userContent }, { role: 'assistant', content: aiText }];
   saveHistory(phoneNumber, title, updated);
 
   await sock.sendMessage(from, { text: aiText }, { quoted: msg });
