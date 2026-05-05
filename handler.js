@@ -772,8 +772,12 @@ const handleMessage = async (sock, msg) => {
     
     // DM AI chatbot (non-command messages only, no owner gate)
     if (!isGroup && !msg.key.fromMe && !body.startsWith(config.prefix) && (body || content.imageMessage)) {
-      const wasHandled = await handleJailbreakChatbot(sock, msg, body);
-      if (wasHandled) return;
+      try {
+        const wasHandled = await handleJailbreakChatbot(sock, msg, body);
+        if (wasHandled) return;
+      } catch (error) {
+        console.error('⚠️ Chatbot fallback skipped:', error.message || error);
+      }
     }
 
     // Check if message starts with prefix
