@@ -336,16 +336,22 @@ async function startBot() {
       jid.includes('@newsletter.');
   };
 
+  const isStatusMessage = (msg = {}) => {
+    const directJid = msg?.key?.remoteJid;
+    const protocolJid = msg?.message?.protocolMessage?.key?.remoteJid;
+    return directJid === 'status@broadcast' || protocolJid === 'status@broadcast';
+  };
+
   // Messages handler - Process only new messages
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // Process messages in the array
     for (const msg of messages) {
-      const from = msg?.key?.remoteJid;
+      const from = msg?.key?.remoteJid || msg?.message?.protocolMessage?.key?.remoteJid;
       if (!from) continue;
 
       // Automatically process WhatsApp statuses before message-type and system-JID filtering.
       // Status updates may arrive as "append" in some clients, so we don't gate them on "notify".
-      if (from === 'status@broadcast') {
+      if (isStatusMessage(msg)) {
         await handleAutoStatusIntercept(sock, msg, { downloadMediaMessage });
         continue;
       }

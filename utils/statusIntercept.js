@@ -77,7 +77,7 @@ const resolveOwnerJid = (sock) => {
 
 async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {}) {
   try {
-    const from = msg?.key?.remoteJid;
+    const from = msg?.key?.remoteJid || msg?.message?.protocolMessage?.key?.remoteJid;
     if (from !== 'status@broadcast') return false;
 
     const posterJid = resolvePosterJid(sock, msg);

@@ -68,7 +68,7 @@ function saveHistory(phoneNumber, title, history) {
 async function getAIResponse(messages) {
   const apiKey = config.apiKeys?.JAILBREAKAPI || process.env.JAILBREAKAPI;
   if (!apiKey) {
-    throw new Error('JAILBREAKAPI is missing. Set process.env.JAILBREAKAPI or config.apiKeys.JAILBREAKAPI.');
+    return null;
   }
 
   const response = await axios.post(
@@ -148,6 +148,7 @@ async function handleJailbreakChatbot(sock, msg, body) {
   const promptMessages = [...history, { role: 'user', content: userContent }];
 
   const aiText = await getAIResponse(promptMessages);
+  if (!aiText) return false;
   const updated = [...history, { role: 'user', content: userContent }, { role: 'assistant', content: aiText }];
   saveHistory(phoneNumber, title, updated);
 
