@@ -4,7 +4,7 @@ const config = require('../../config');
 const APIs = require('../../utils/api');
 const { toAudio } = require('../../utils/converter');
 
-const CHANNEL_URL = 'https://whatsapp.com/channel/0029VagJIAr3bbVzV70jSU1p';
+const CHANNEL_URL = 'https://whatsapp.com/channel/0029Vb6zZKpKbYMFqRWgx62q';
 const AXIOS_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   Accept: '*/*',
@@ -94,7 +94,7 @@ module.exports = {
     }
 
     try {
-      if (typeof extra.react === 'function') await extra.react('🎧');
+      if (typeof extra.react === 'function') await extra.react('🔥');
 
       const song = await resolveSong(query);
       if (!song) throw new Error('No results found for that query.');
@@ -113,7 +113,7 @@ module.exports = {
           forwardingScore: 1,
           isForwarded: true,
           forwardedNewsletterMessageInfo: {
-            newsletterJid: config.newsletterJid || '120363161513685998@newsletter',
+            newsletterJid: config.newsletterJid || '120363424536255731@newsletter',
             newsletterName: config.botName || 'JAILBREAK-XMD',
             serverMessageId: -1
           },
