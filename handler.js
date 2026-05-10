@@ -785,7 +785,17 @@ const handleMessage = async (sock, msg) => {
     
     // Parse command
     const args = body.slice(config.prefix.length).trim().split(/\s+/);
-    const commandName = args.shift().toLowerCase();
+    let commandName = args.shift().toLowerCase();
+
+    if (commandName.startsWith('antisocial.')) {
+      const tail = commandName.slice('antisocial.'.length);
+      const match = tail.match(/^(add|remove|delete|del|list)(.*)$/);
+      if (match) {
+        commandName = 'antisocial';
+        args.unshift(match[1]);
+        if (match[2]) args.push(match[2]);
+      }
+    }
     
     // Get command
     const command = commands.get(commandName);

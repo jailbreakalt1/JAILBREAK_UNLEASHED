@@ -12,6 +12,7 @@ const USERS_DB = path.join(DB_PATH, 'users.json');
 const WARNINGS_DB = path.join(DB_PATH, 'warnings.json');
 const MODS_DB = path.join(DB_PATH, 'mods.json');
 const SUDO_ALLOW_DB = path.join(DB_PATH, 'sudoAllow.json');
+const ANTISOCIAL_DB = path.join(DB_PATH, 'antisocial.json');
 
 // Initialize database directory
 if (!fs.existsSync(DB_PATH)) {
@@ -30,6 +31,7 @@ initDB(USERS_DB, {});
 initDB(WARNINGS_DB, {});
 initDB(MODS_DB, { moderators: [] });
 initDB(SUDO_ALLOW_DB, { groups: {} });
+initDB(ANTISOCIAL_DB, { numbers: [] });
 
 // Read database
 const readDB = (filePath) => {
@@ -197,6 +199,51 @@ const addGroupCommandAllow = (groupId, commandName) => {
   return writeDB(SUDO_ALLOW_DB, data);
 };
 
+// Antisocial chatbot blocklist system
+const normalizeAntisocialNumber = (number = '') => String(number).replace(/\D/g, '');
+
+const getAntisocialData = () => {
+  const data = readDB(ANTISOCIAL_DB);
+  if (!Array.isArray(data.numbers)) {
+    data.numbers = [];
+    writeDB(ANTISOCIAL_DB, data);
+  }
+  return data;
+};
+
+const getAntisocialNumbers = () => getAntisocialData().numbers;
+
+const isAntisocialNumber = (number) => {
+  const normalized = normalizeAntisocialNumber(number);
+  if (!normalized) return false;
+  return getAntisocialNumbers().includes(normalized);
+};
+
+const addAntisocialNumber = (number) => {
+  const normalized = normalizeAntisocialNumber(number);
+  if (!normalized) return false;
+
+  const data = getAntisocialData();
+  if (data.numbers.includes(normalized)) return false;
+
+  data.numbers.push(normalized);
+  data.numbers.sort();
+  writeDB(ANTISOCIAL_DB, data);
+  return true;
+};
+
+const removeAntisocialNumber = (number) => {
+  const normalized = normalizeAntisocialNumber(number);
+  if (!normalized) return false;
+
+  const data = getAntisocialData();
+  if (!data.numbers.includes(normalized)) return false;
+
+  data.numbers = data.numbers.filter((entry) => entry !== normalized);
+  writeDB(ANTISOCIAL_DB, data);
+  return true;
+};
+
 const removeGroupCommandAllow = (groupId, commandName) => {
   const data = getSudoAllowData();
   if (!Array.isArray(data.groups[groupId])) return false;
@@ -225,5 +272,10 @@ module.exports = {
   getAllowedCommandsForGroup,
   isGroupAllowedForCommand,
   addGroupCommandAllow,
-  removeGroupCommandAllow
+  removeGroupCommandAllow,
+  normalizeAntisocialNumber,
+  getAntisocialNumbers,
+  isAntisocialNumber,
+  addAntisocialNumber,
+  removeAntisocialNumber
 };
