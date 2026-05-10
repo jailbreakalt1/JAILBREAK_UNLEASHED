@@ -6,7 +6,6 @@ const config = {
     // Bot Owner Configuration
     ownerNumber: ['263738104222','263717456159', '263778607363'], // Add your number without + or spaces
     ownerName: ['JAILBREAK-XMD', 'Ryan'], // Owner names corresponding to ownerNumber array
-    antisocial: [''], // Numbers to ignore in chatbot flow (no + or spaces)
     
     // Bot Configuration
     botName: 'JAILBREAK-XMD',
