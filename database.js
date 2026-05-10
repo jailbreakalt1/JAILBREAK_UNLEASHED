@@ -202,12 +202,28 @@ const addGroupCommandAllow = (groupId, commandName) => {
 // Antisocial chatbot blocklist system
 const normalizeAntisocialNumber = (number = '') => String(number).replace(/\D/g, '');
 
+const normalizeAntisocialEntries = (entries = []) => {
+  if (!Array.isArray(entries)) return [];
+
+  return [...new Set(
+    entries
+      .map((entry) => normalizeAntisocialNumber(entry))
+      .filter(Boolean)
+  )].sort();
+};
+
 const getAntisocialData = () => {
-  const data = readDB(ANTISOCIAL_DB);
-  if (!Array.isArray(data.numbers)) {
-    data.numbers = [];
+  const rawData = readDB(ANTISOCIAL_DB);
+  const data = Array.isArray(rawData)
+    ? { numbers: rawData }
+    : (rawData && typeof rawData === 'object' ? rawData : { numbers: [] });
+  const normalizedNumbers = normalizeAntisocialEntries(data.numbers);
+
+  if (!Array.isArray(data.numbers) || JSON.stringify(data.numbers) !== JSON.stringify(normalizedNumbers)) {
+    data.numbers = normalizedNumbers;
     writeDB(ANTISOCIAL_DB, data);
   }
+
   return data;
 };
 
