@@ -371,6 +371,31 @@ const isSystemJid = (jid) => {
          jid.includes('@newsletter.');
 };
 
+const getAntisocialCandidateNumbers = (msg, from) => {
+  const sender = msg.key?.participant || from;
+  const candidates = [sender, from];
+
+  for (const jid of [sender, from]) {
+    const normalizedJid = normalizeJidWithLid(jid);
+    if (normalizedJid && normalizedJid !== jid) {
+      candidates.push(normalizedJid);
+    }
+  }
+
+  return [...new Set(
+    candidates
+      .filter(Boolean)
+      .map((jid) => normalizeJid(jid))
+      .map((number) => database.normalizeAntisocialNumber(number))
+      .filter(Boolean)
+  )];
+};
+
+const isAntisocialSender = (msg, from) => {
+  if (msg.key?.fromMe) return false;
+  return getAntisocialCandidateNumbers(msg, from).some((number) => database.isAntisocialNumber(number));
+};
+
 // Main message handler
 const handleMessage = async (sock, msg) => {
   try {
@@ -384,6 +409,11 @@ const handleMessage = async (sock, msg) => {
     // System message filter - ignore broadcast/status/newsletter messages
     if (isSystemJid(from)) {
       return; // Silently ignore system messages
+    }
+
+    // Antisocial blocklist must run before any reactions, command handling, or chatbot API calls.
+    if (isAntisocialSender(msg, from)) {
+      return; // Silently ignore blocked senders.
     }
     
     // Auto-React System
