@@ -56,6 +56,7 @@ const config = {
     apiKeys: {
       // Add API keys here if needed
       JAILBREAKAPI: process.env.JAILBREAKAPI || '',
+      JAILBREAKVISIONKEY: process.env.JAILBREAKVISIONKEY || process.env.OPENROUTER_API_KEY || '',
       openai: '',
       deepai: '',
       remove_bg: ''

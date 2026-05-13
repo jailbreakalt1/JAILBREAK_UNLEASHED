@@ -6,11 +6,16 @@ const config = require('../config');
 const database = require('../database');
 
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL_ID = 'meta/llama-4-maverick-17b-128e-instruct';
+const VISION_MODEL_ID = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 const CHAT_DIR = path.join(__dirname, '../database/chats');
 const AI_RESPONSE_PREFIX = '‧₊˚♕‧₊˚';
 const MISSING_API_KEY_NOTICE = "I've seen a couple of messages of which I can't reply to as I do not have an API key.";
+const MISSING_VISION_KEY_NOTICE = "I can't interpret media yet because JAILBREAKVISIONKEY is not configured.";
+const MAX_INLINE_MEDIA_BYTES = 20 * 1024 * 1024;
 let missingApiKeyNoticeSent = false;
+let missingVisionKeyNoticeSent = false;
 
 const PERSONA = `You are JB short for JAILBREAK, a state of the art AI built by Ryan.
       
@@ -76,18 +81,27 @@ function getBotInboxJid(sock) {
   return number ? `${number}@s.whatsapp.net` : null;
 }
 
-async function notifyMissingApiKeyOnce(sock) {
-  if (missingApiKeyNoticeSent) return;
-  missingApiKeyNoticeSent = true;
-
+async function sendBotInboxNotice(sock, notice) {
   const botInboxJid = getBotInboxJid(sock);
   if (!botInboxJid) return;
 
   try {
-    await sock.sendMessage(botInboxJid, { text: MISSING_API_KEY_NOTICE });
+    await sock.sendMessage(botInboxJid, { text: notice });
   } catch (error) {
-    console.error('Failed to send missing API key notice:', error.message || error);
+    console.error('Failed to send bot inbox notice:', error.message || error);
   }
+}
+
+async function notifyMissingApiKeyOnce(sock) {
+  if (missingApiKeyNoticeSent) return;
+  missingApiKeyNoticeSent = true;
+  await sendBotInboxNotice(sock, MISSING_API_KEY_NOTICE);
+}
+
+async function notifyMissingVisionKeyOnce(sock) {
+  if (missingVisionKeyNoticeSent) return;
+  missingVisionKeyNoticeSent = true;
+  await sendBotInboxNotice(sock, MISSING_VISION_KEY_NOTICE);
 }
 
 function getHistory(phoneNumber) {
@@ -161,9 +175,104 @@ async function getAIResponse(messages) {
 
 
 
-async function maybeBuildImagePrompt(msg, userText = '') {
-  const imageMessage = msg?.message?.imageMessage;
-  if (!imageMessage) return null;
+function unwrapMessage(message = {}) {
+  let current = message;
+  const wrapperKeys = [
+    'ephemeralMessage',
+    'viewOnceMessage',
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'documentWithCaptionMessage'
+  ];
+
+  while (current && typeof current === 'object') {
+    const wrapperKey = wrapperKeys.find((key) => current[key]?.message);
+    if (!wrapperKey) break;
+    current = current[wrapperKey].message;
+  }
+
+  return current || {};
+}
+
+function getSupportedMediaMessage(msg) {
+  const message = unwrapMessage(msg?.message);
+  const descriptors = [
+    { key: 'imageMessage', type: 'image', urlField: 'image_url' },
+    { key: 'videoMessage', type: 'video', urlField: 'video_url' },
+    { key: 'audioMessage', type: 'audio', urlField: 'input_audio' }
+  ];
+
+  for (const descriptor of descriptors) {
+    if (message[descriptor.key]) {
+      return {
+        ...descriptor,
+        content: message[descriptor.key]
+      };
+    }
+  }
+
+  return null;
+}
+
+function getAudioFormat(mimetype = '') {
+  const normalized = mimetype.toLowerCase().split(';')[0].trim();
+  const format = normalized.split('/')[1] || 'mp3';
+  if (format === 'mpeg' || format === 'mpga') return 'mp3';
+  if (format === 'x-wav') return 'wav';
+  if (format === 'x-m4a') return 'm4a';
+  return format;
+}
+
+function getDefaultMimetype(mediaType) {
+  if (mediaType === 'image') return 'image/jpeg';
+  if (mediaType === 'audio') return 'audio/mpeg';
+  return 'video/mp4';
+}
+
+function buildMediaContentPart(media, mediaB64) {
+  const mimetype = media.content.mimetype || getDefaultMimetype(media.type);
+
+  if (media.type === 'audio') {
+    return {
+      type: 'input_audio',
+      input_audio: {
+        data: mediaB64,
+        format: getAudioFormat(mimetype)
+      }
+    };
+  }
+
+  return {
+    type: media.urlField,
+    [media.urlField]: {
+      url: `data:${mimetype};base64,${mediaB64}`
+    }
+  };
+}
+
+function buildMediaInterpreterPrompt(mediaType, userText = '') {
+  const caption = userText?.trim();
+  const captionLine = caption
+    ? `The user's caption or question is: "${caption}"`
+    : 'The user did not include a caption or question.';
+
+  return [
+    `Interpret this WhatsApp ${mediaType} for a downstream text-only chatbot.`,
+    captionLine,
+    'Return only useful facts from the media: visible content, text/OCR, scene, people/objects/actions, audio transcript, and any safety-relevant context.',
+    'Keep it concise but specific enough that the text-only chatbot can answer naturally.'
+  ].join(' ');
+}
+
+async function interpretMediaMessage(sock, msg, userText = '') {
+  const media = getSupportedMediaMessage(msg);
+  if (!media) return null;
+
+  const apiKey = config.apiKeys?.JAILBREAKVISIONKEY || process.env.JAILBREAKVISIONKEY || process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    await notifyMissingVisionKeyOnce(sock);
+    return null;
+  }
 
   const mediaBuffer = await downloadMediaMessage(
     msg,
@@ -172,14 +281,52 @@ async function maybeBuildImagePrompt(msg, userText = '') {
     { logger: console, reuploadRequest: null }
   );
 
-  const imageB64 = Buffer.from(mediaBuffer).toString('base64');
-  if (imageB64.length > 180_000) {
-    throw new Error('Image is too large for inline upload. Please send a smaller image.');
+  if (mediaBuffer.length > MAX_INLINE_MEDIA_BYTES) {
+    throw new Error(`${media.type} is too large for inline interpretation. Please send a smaller file.`);
   }
 
-  const mimetype = imageMessage.mimetype || 'image/jpeg';
-  const instruction = userText?.trim() || 'Describe this image briefly.';
-  return `${instruction} <img src="data:${mimetype};base64,${imageB64}" />`;
+  const mediaB64 = Buffer.from(mediaBuffer).toString('base64');
+  const response = await axios.post(
+    OPENROUTER_CHAT_URL,
+    {
+      model: VISION_MODEL_ID,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: buildMediaInterpreterPrompt(media.type, userText)
+            },
+            buildMediaContentPart(media, mediaB64)
+          ]
+        }
+      ],
+      max_tokens: 512,
+      temperature: 0.2,
+      stream: false
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      timeout: 60000
+    }
+  );
+
+  const interpretation = response.data?.choices?.[0]?.message?.content?.trim();
+  if (!interpretation) {
+    throw new Error('Empty content in OpenRouter media interpretation response.');
+  }
+
+  return [
+    `The user sent a ${media.type}.`,
+    userText?.trim() ? `Their caption/question: ${userText.trim()}` : null,
+    `Media interpretation: ${interpretation}`,
+    'Generate your reply from this interpretation while keeping your persona and conversation context.'
+  ].filter(Boolean).join('\n');
 }
 
 async function handleJailbreakChatbot(sock, msg, body) {
@@ -193,8 +340,8 @@ async function handleJailbreakChatbot(sock, msg, body) {
   const title = `JAILBREAK'S CHAT WITH ${displayName}`;
 
   const history = getHistory(phoneNumber);
-  const imagePrompt = await maybeBuildImagePrompt(msg, body);
-  const userContent = imagePrompt || body;
+  const interpretedMediaPrompt = await interpretMediaMessage(sock, msg, body);
+  const userContent = interpretedMediaPrompt || body;
   if (!userContent) return false;
 
   const promptMessages = [...history, { role: 'user', content: userContent }];
