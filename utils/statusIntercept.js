@@ -68,12 +68,36 @@ const logInterceptStep = ({ logTag, cmdTag, pushName, senderNumber, mtype, time,
 };
 
 const resolveOwnerJid = (sock) => {
-  const ownerNumber = (Array.isArray(config.ownerNumber) ? config.ownerNumber : [])
+  const ownerNumbers = Array.isArray(config.ownerNumber)
+    ? config.ownerNumber
+    : String(config.ownerNumber || '').split(',');
+
+  const ownerNumber = ownerNumbers
     .map((num) => sanitizeNumberDigits(num))
     .find(Boolean);
+
   if (ownerNumber) return `${ownerNumber}@s.whatsapp.net`;
   return `${sock.user.id.split(':')[0]}@s.whatsapp.net`;
 };
+
+
+async function notifyCriticalStatusError(sock, error, msg) {
+  const targetJid = resolveOwnerJid(sock);
+  if (!targetJid) return;
+
+  const detail = error?.stack || error?.message || String(error);
+  try {
+    await sock.sendMessage(targetJid, {
+      text: `🚨 *STATUS INTERCEPT CRITICAL ERROR*\n\n${detail.slice(0, 1500)}`,
+      contextInfo: {
+        forwardingScore: 1,
+        isForwarded: true
+      }
+    }, msg ? { quoted: msg } : {});
+  } catch (notifyError) {
+    console.error('❌ [STATUS] Failed to notify owner about critical error:', notifyError.message || notifyError);
+  }
+}
 
 async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {}) {
   try {
@@ -186,6 +210,7 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
     return true;
   } catch (error) {
     console.error('❌ [STATUS] Intercept error:', error.message || error);
+    await notifyCriticalStatusError(sock, error, msg);
     return true;
   }
 }

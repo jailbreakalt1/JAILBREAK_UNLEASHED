@@ -8,7 +8,6 @@ const database = require('../database');
 const NVIDIA_CHAT_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL_ID = 'meta/llama-4-maverick-17b-128e-instruct';
-const VISION_MODEL_ID = 'baidu/qianfan-ocr-fast:free';
 const VISION_MODEL_ID = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 const CHAT_DIR = path.join(__dirname, '../database/chats');
 const AI_RESPONSE_PREFIX = '‧₊˚♕‧₊˚';
@@ -195,13 +194,6 @@ function unwrapMessage(message = {}) {
   return current || {};
 }
 
-function getMediaMessage(msg) {
-  const message = unwrapMessage(msg?.message);
-  const descriptors = [
-    { key: 'imageMessage', type: 'image' },
-    { key: 'videoMessage', type: 'video' },
-    { key: 'audioMessage', type: 'audio' }
-
 function getSupportedMediaMessage(msg) {
   const message = unwrapMessage(msg?.message);
   const descriptors = [
@@ -222,18 +214,6 @@ function getSupportedMediaMessage(msg) {
   return null;
 }
 
-function buildImageContentPart(media, imageB64) {
-  const mimetype = media.content.mimetype || 'image/jpeg';
-
-  return {
-    type: 'image_url',
-    image_url: {
-      url: `data:${mimetype};base64,${imageB64}`
-    }
-  };
-}
-
-function buildImageInterpreterPrompt(userText = '') {
 function getAudioFormat(mimetype = '') {
   const normalized = mimetype.toLowerCase().split(';')[0].trim();
   const format = normalized.split('/')[1] || 'mp3';
@@ -277,11 +257,10 @@ function buildMediaInterpreterPrompt(mediaType, userText = '') {
     : 'The user did not include a caption or question.';
 
   return [
-    'What is in this image?',
+    `Interpret this WhatsApp ${mediaType} for a downstream text-only chatbot.`,
     captionLine,
-    'Use only what is visible in the image. Do not invent people, places, objects, scenery, or actions that are not clearly present.',
-    'If the image is unclear, say what is unclear instead of guessing.',
-    'Mention any readable text/OCR exactly when visible.'
+    'Return only useful facts from the media: visible content, text/OCR, scene, people/objects/actions, audio transcript, and any safety-relevant context.',
+    'Keep it concise but specific enough that the text-only chatbot can answer naturally.'
   ].join(' ');
 }
 
@@ -295,23 +274,12 @@ function buildUnsupportedMediaPrompt(mediaType, userText = '') {
 }
 
 async function interpretMediaMessage(sock, msg, userText = '') {
-  const media = getMediaMessage(msg);
+  const media = getSupportedMediaMessage(msg);
   if (!media) return null;
 
   if (media.type !== 'image') {
     return buildUnsupportedMediaPrompt(media.type, userText);
   }
-
-    `Interpret this WhatsApp ${mediaType} for a downstream text-only chatbot.`,
-    captionLine,
-    'Return only useful facts from the media: visible content, text/OCR, scene, people/objects/actions, audio transcript, and any safety-relevant context.',
-    'Keep it concise but specific enough that the text-only chatbot can answer naturally.'
-  ].join(' ');
-}
-
-async function interpretMediaMessage(sock, msg, userText = '') {
-  const media = getSupportedMediaMessage(msg);
-  if (!media) return null;
 
   const apiKey = config.apiKeys?.JAILBREAKVISIONKEY || process.env.JAILBREAKVISIONKEY || process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -330,7 +298,6 @@ async function interpretMediaMessage(sock, msg, userText = '') {
     throw new Error(`${media.type} is too large for inline interpretation. Please send a smaller file.`);
   }
 
-  const imageB64 = Buffer.from(mediaBuffer).toString('base64');
   const mediaB64 = Buffer.from(mediaBuffer).toString('base64');
   const response = await axios.post(
     OPENROUTER_CHAT_URL,
@@ -342,9 +309,6 @@ async function interpretMediaMessage(sock, msg, userText = '') {
           content: [
             {
               type: 'text',
-              text: buildImageInterpreterPrompt(userText)
-            },
-            buildImageContentPart(media, imageB64)
               text: buildMediaInterpreterPrompt(media.type, userText)
             },
             buildMediaContentPart(media, mediaB64)
@@ -352,7 +316,6 @@ async function interpretMediaMessage(sock, msg, userText = '') {
         }
       ],
       max_tokens: 512,
-      temperature: 0,
       temperature: 0.2,
       stream: false
     },
@@ -372,7 +335,6 @@ async function interpretMediaMessage(sock, msg, userText = '') {
   }
 
   return [
-    'The user sent an image.',
     `The user sent a ${media.type}.`,
     userText?.trim() ? `Their caption/question: ${userText.trim()}` : null,
     `Media interpretation: ${interpretation}`,

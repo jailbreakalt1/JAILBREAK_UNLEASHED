@@ -138,7 +138,7 @@ async function extractMediaBuffer(msg, messageType, options = {}) {
 
 async function storeInboxMessage(sock, msg, options = {}) {
   try {
-    if (!msg?.message || msg.key?.fromMe) return;
+    if (!msg?.message) return;
 
     const from = msg.key?.remoteJid;
     if (!from || !isInboxJid(from)) return;
@@ -210,6 +210,10 @@ async function recoverDeletedInboxMessage(sock, msg) {
     let data = storeByChatAndId.get(makeStoreKey(deletedRemoteJid, deletedId));
     if (!data) {
       data = storeById.get(deletedId) || null;
+    }
+
+    if (!data && deletedKey.participant) {
+      data = storeByChatAndId.get(makeStoreKey(deletedKey.participant, deletedId)) || null;
     }
 
     if (!data) {
