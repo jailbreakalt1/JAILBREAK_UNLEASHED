@@ -10,6 +10,7 @@ const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL_ID = 'meta/llama-4-maverick-17b-128e-instruct';
 const VISION_MODEL_ID = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
 const CHAT_DIR = path.join(__dirname, '../database/chats');
+const CHAT_FILE_SUFFIX = '.history.json';
 const AI_RESPONSE_PREFIX = '‧₊˚♕‧₊˚';
 const MISSING_API_KEY_NOTICE = "I've seen a couple of messages of which I can't reply to as I do not have an API key.";
 const MISSING_VISION_KEY_NOTICE = "I can't interpret media yet because JAILBREAKVISIONKEY is not configured.";
@@ -64,7 +65,14 @@ if (!fs.existsSync(CHAT_DIR)) {
 }
 
 function getPhoneNumber(jid = '') {
-  return String(jid).split('@')[0].split(':')[0] || 'unknown';
+  const raw = String(jid).split('@')[0].split(':')[0] || '';
+  const digits = raw.replace(/\D/g, '');
+  return digits || raw || 'unknown';
+}
+
+function getChatFilePath(phoneNumber) {
+  const safeNumber = String(phoneNumber || 'unknown').replace(/[^0-9a-zA-Z_+.-]/g, '_');
+  return path.join(CHAT_DIR, `${safeNumber}${CHAT_FILE_SUFFIX}`);
 }
 
 function getDisplayName(msg, phoneNumber) {
@@ -105,7 +113,7 @@ async function notifyMissingVisionKeyOnce(sock) {
 }
 
 function getHistory(phoneNumber) {
-  const filePath = path.join(CHAT_DIR, `${phoneNumber}.json`);
+  const filePath = getChatFilePath(phoneNumber);
   if (!fs.existsSync(filePath)) return [];
 
   try {
@@ -124,7 +132,7 @@ function getHistory(phoneNumber) {
 }
 
 function saveHistory(phoneNumber, title, history) {
-  const filePath = path.join(CHAT_DIR, `${phoneNumber}.json`);
+  const filePath = getChatFilePath(phoneNumber);
   fs.writeFileSync(
     filePath,
     JSON.stringify({ phoneNumber, title, history }, null, 2)
@@ -284,7 +292,7 @@ async function interpretMediaMessage(sock, msg, userText = '') {
   const apiKey = config.apiKeys?.JAILBREAKVISIONKEY || process.env.JAILBREAKVISIONKEY || process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     await notifyMissingVisionKeyOnce(sock);
-    return null;
+    return buildUnsupportedMediaPrompt(media.type, userText);
   }
 
   const mediaBuffer = await downloadMediaMessage(
@@ -347,7 +355,7 @@ async function handleJailbreakChatbot(sock, msg, body) {
   if (!from || from.endsWith('@g.us')) return false;
 
   const sender = msg.key.participant || from;
-  const phoneNumber = getPhoneNumber(sender);
+  const phoneNumber = getPhoneNumber(sender || from);
   if (isAntisocialNumber(phoneNumber)) return false;
   const displayName = getDisplayName(msg, phoneNumber);
   const title = `JAILBREAK'S CHAT WITH ${displayName}`;
