@@ -89,6 +89,21 @@ function getBotInboxJid(sock) {
   return number ? `${number}@s.whatsapp.net` : null;
 }
 
+function getConversationPhoneNumber(sock, msg) {
+  const botNumber = getPhoneNumber(sock.user?.id || sock.user?.jid || '');
+  const candidates = [
+    msg?.key?.participant,
+    msg?.participant,
+    msg?.key?.remoteJid,
+    msg?.message?.extendedTextMessage?.contextInfo?.participant
+  ]
+    .map((jid) => getPhoneNumber(jid))
+    .filter(Boolean);
+
+  const externalNumber = candidates.find((number) => number !== botNumber);
+  return externalNumber || candidates[0] || 'unknown';
+}
+
 async function sendBotInboxNotice(sock, notice) {
   const botInboxJid = getBotInboxJid(sock);
   if (!botInboxJid) return;
@@ -354,8 +369,7 @@ async function handleJailbreakChatbot(sock, msg, body) {
   const from = msg.key?.remoteJid;
   if (!from || from.endsWith('@g.us')) return false;
 
-  const sender = msg.key.participant || from;
-  const phoneNumber = getPhoneNumber(sender || from);
+  const phoneNumber = getConversationPhoneNumber(sock, msg);
   if (isAntisocialNumber(phoneNumber)) return false;
   const displayName = getDisplayName(msg, phoneNumber);
   const title = `JAILBREAK'S CHAT WITH ${displayName}`;
