@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@vreden/meta');
+const FileType = require('file-type');
 const { getTempDir, deleteTempFile } = require('../../utils/tempManager');
 const {
   DEFAULT_IMAGES_DIR,
@@ -12,12 +13,20 @@ const {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const getImageMessage = (msg) => {
+const getMediaMessage = (msg) => {
   const directImage = msg.message?.imageMessage;
-  if (directImage) return directImage;
+  if (directImage) return { media: directImage, type: 'image' };
+
+  const directDocument = msg.message?.documentMessage;
+  if (directDocument && directDocument.mimetype?.startsWith('image/')) {
+    return { media: directDocument, type: 'document' };
+  }
 
   const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  if (quoted?.imageMessage) return quoted.imageMessage;
+  if (quoted?.imageMessage) return { media: quoted.imageMessage, type: 'image' };
+  if (quoted?.documentMessage && quoted.documentMessage.mimetype?.startsWith('image/')) {
+    return { media: quoted.documentMessage, type: 'document' };
+  }
 
   return null;
 };
@@ -79,20 +88,20 @@ module.exports = {
     }
 
     if (option === 'mode' && (subOption === 'static' || subOption === 'off')) {
-      const imageMessage = getImageMessage(msg);
+      const mediaPayload = getMediaMessage(msg);
 
-      if (!imageMessage) {
+      if (!mediaPayload) {
         stopAutonomousMode();
         return extra.reply('🛑 DP autonomous mode disabled. Static mode is active (no image changed).');
       }
 
       const tmpDir = getTempDir();
-      const imagePath = path.join(tmpDir, `jbx-dp-${Date.now()}.jpg`);
+      let imagePath;
 
       try {
         await extra.react('⏳');
 
-        const stream = await downloadContentFromMessage(imageMessage, 'image');
+        const stream = await downloadContentFromMessage(mediaPayload.media, mediaPayload.type === 'document' ? 'document' : 'image');
         let buffer = Buffer.alloc(0);
 
         for await (const chunk of stream) {
@@ -107,6 +116,9 @@ module.exports = {
           return extra.reply(`❌ File too large: ${(buffer.length / 1024 / 1024).toFixed(2)}MB (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
         }
 
+        const detectedType = await FileType.fromBuffer(buffer);
+        const extension = detectedType?.ext || 'jpg';
+        imagePath = path.join(tmpDir, `jbx-dp-${Date.now()}.${extension}`);
         fs.writeFileSync(imagePath, buffer);
 
         const ownJid = `${(sock.user?.id || '').split(':')[0]}@s.whatsapp.net`;
@@ -122,30 +134,30 @@ module.exports = {
         await extra.reply(`⫎ *System Error:* \`${error?.message || 'unknown error'}\``);
         await extra.react('❌');
       } finally {
-        deleteTempFile(imagePath);
+        if (imagePath) deleteTempFile(imagePath);
       }
       return;
     }
 
-    const imageMessage = getImageMessage(msg);
+    const mediaPayload = getMediaMessage(msg);
 
-    if (!imageMessage) {
+    if (!mediaPayload) {
       return extra.reply(
         `⫎ Usage:\n` +
         `• .dp mode static (send/reply image)\n` +
         `• .dp mode autonomous\n` +
         `• .dp mode status\n\n` +
-        `Tip: .dp with image still works as static mode.`
+        `Tip: send/reply as image for convenience, or as *document* to preserve upload quality before WhatsApp applies profile-photo compression.`
       );
     }
 
     const tmpDir = getTempDir();
-    const imagePath = path.join(tmpDir, `jbx-dp-${Date.now()}.jpg`);
+    let imagePath;
 
     try {
       await extra.react('⏳');
 
-      const stream = await downloadContentFromMessage(imageMessage, 'image');
+      const stream = await downloadContentFromMessage(mediaPayload.media, mediaPayload.type === 'document' ? 'document' : 'image');
       let buffer = Buffer.alloc(0);
 
       for await (const chunk of stream) {
@@ -160,6 +172,9 @@ module.exports = {
         return extra.reply(`❌ File too large: ${(buffer.length / 1024 / 1024).toFixed(2)}MB (max: ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
       }
 
+      const detectedType = await FileType.fromBuffer(buffer);
+      const extension = detectedType?.ext || 'jpg';
+      imagePath = path.join(tmpDir, `jbx-dp-${Date.now()}.${extension}`);
       fs.writeFileSync(imagePath, buffer);
 
       const ownJid = `${(sock.user?.id || '').split(':')[0]}@s.whatsapp.net`;
@@ -175,7 +190,7 @@ module.exports = {
       await extra.reply(`⫎ *System Error:* \`${error?.message || 'unknown error'}\``);
       await extra.react('❌');
     } finally {
-      deleteTempFile(imagePath);
+      if (imagePath) deleteTempFile(imagePath);
     }
   }
 };
