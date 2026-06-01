@@ -7,16 +7,40 @@ const config = require('../config');
 
 const STATUS_REACTIONS = ['👍', '👀', '🔥', '🤐', '😮', '🍿', '💯', '😂', '👏', '🥂', '🤔', '🫡', '⚡', '🛸'];
 const FALLBACK_PFP = 'https://placehold.co/150x150/1e293b/ffffff?text=JB';
+const STATUS_JID = 'status@broadcast';
 
 const sanitizeNumberDigits = (value = '') => String(value).replace(/\D/g, '');
+const isJid = (value) => typeof value === 'string' && value.includes('@');
+const isStatusJid = (value) => value === STATUS_JID;
+
+const unwrapMessage = (message = {}) => {
+  let current = message || {};
+  const wrappers = [
+    'ephemeralMessage',
+    'viewOnceMessage',
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'documentWithCaptionMessage'
+  ];
+
+  for (let depth = 0; depth < 6 && current; depth++) {
+    const wrapperKey = wrappers.find((key) => current?.[key]?.message);
+    if (!wrapperKey) break;
+    current = current[wrapperKey].message;
+  }
+
+  return current || {};
+};
 
 const detectMessageType = (message = {}) => {
+  const unwrapped = unwrapMessage(message);
   const order = ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage'];
-  return order.find((key) => message?.[key]) || Object.keys(message || {})[0] || null;
+  return order.find((key) => unwrapped?.[key]) || Object.keys(unwrapped || {}).find((key) => key !== 'messageContextInfo') || null;
 };
 
 const formatTimestamp = (timestampSeconds = 0) => {
-  const date = new Date(Number(timestampSeconds || 0) * 1000);
+  const timestamp = Number(timestampSeconds || 0);
+  const date = new Date((timestamp > 0 ? timestamp : Math.floor(Date.now() / 1000)) * 1000);
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: config.timezone || 'Africa/Harare',
     hour: '2-digit',
@@ -28,34 +52,74 @@ const formatTimestamp = (timestampSeconds = 0) => {
   }).format(date).replace(',', ' •');
 };
 
-const isOwnStatus = (sock, posterJid) => {
-  const botIds = [
-    sock?.user?.id,
-    sock?.user?.id?.split(':')[0] ? `${sock.user.id.split(':')[0]}@s.whatsapp.net` : null
-  ].filter(Boolean);
-  return botIds.includes(posterJid);
+const normalizeUserJid = (jid) => {
+  if (!isJid(jid)) return null;
+  const [user, server] = String(jid).split('@');
+  if (!user || !server) return null;
+  return `${user.split(':')[0]}@${server}`;
 };
 
+const getOwnJids = (sock) => [
+  sock?.user?.id,
+  sock?.user?.jid,
+  sock?.user?.lid,
+  sock?.authState?.creds?.me?.id,
+  sock?.authState?.creds?.me?.lid
+].map(normalizeUserJid).filter(Boolean);
 
+const isOwnStatus = (sock, posterJid) => {
+  const normalizedPoster = normalizeUserJid(posterJid);
+  if (!normalizedPoster) return false;
+  return getOwnJids(sock).includes(normalizedPoster);
+};
+
+const firstValidJid = (values = []) => values.find((jid) => isJid(jid) && !isStatusJid(jid));
+
+const resolveStatusRemoteJid = (msg = {}) => {
+  const message = unwrapMessage(msg.message || {});
+  return [
+    msg?.key?.remoteJid,
+    msg?.message?.protocolMessage?.key?.remoteJid,
+    msg?.message?.reactionMessage?.key?.remoteJid,
+    message?.protocolMessage?.key?.remoteJid,
+    message?.reactionMessage?.key?.remoteJid
+  ].find(isStatusJid) || null;
+};
 
 const resolvePosterJid = (sock, msg = {}) => {
+  const message = unwrapMessage(msg.message || {});
   const candidates = [
     msg?.key?.participant,
+    msg?.key?.participant_pn,
     msg?.participant,
+    msg?.participant_pn,
     msg?.message?.protocolMessage?.key?.participant,
-    msg?.message?.messageContextInfo?.participant
-  ].filter(Boolean);
+    msg?.message?.reactionMessage?.key?.participant,
+    msg?.message?.messageContextInfo?.participant,
+    message?.protocolMessage?.key?.participant,
+    message?.reactionMessage?.key?.participant,
+    message?.messageContextInfo?.participant,
+    msg?.key?.participant_lid,
+    msg?.participant_lid
+  ].map(normalizeUserJid).filter(Boolean);
 
-  const firstValid = candidates.find((jid) => String(jid).includes('@'));
+  const firstValid = firstValidJid(candidates);
   if (firstValid) return firstValid;
 
-  if (msg?.key?.fromMe && sock?.user?.id) {
-    const own = sock.user.id.split(':')[0];
-    if (own) return `${own}@s.whatsapp.net`;
+  if (msg?.key?.fromMe) {
+    return getOwnJids(sock)[0] || null;
   }
 
   return null;
 };
+
+const buildStatusKey = (msg, posterJid) => ({
+  ...msg.key,
+  remoteJid: STATUS_JID,
+  participant: posterJid || msg?.key?.participant,
+  fromMe: Boolean(msg?.key?.fromMe),
+  id: msg?.key?.id
+});
 
 const logInterceptStep = ({ logTag, cmdTag, pushName, senderNumber, mtype, time, body }) => {
   console.log(
@@ -77,9 +141,8 @@ const resolveOwnerJid = (sock) => {
     .find(Boolean);
 
   if (ownerNumber) return `${ownerNumber}@s.whatsapp.net`;
-  return `${sock.user.id.split(':')[0]}@s.whatsapp.net`;
+  return getOwnJids(sock)[0] || null;
 };
-
 
 async function notifyCriticalStatusError(sock, error, msg) {
   const targetJid = resolveOwnerJid(sock);
@@ -101,32 +164,45 @@ async function notifyCriticalStatusError(sock, error, msg) {
 
 async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {}) {
   try {
-    const from = msg?.key?.remoteJid || msg?.message?.protocolMessage?.key?.remoteJid;
-    if (from !== 'status@broadcast') return false;
+    const from = resolveStatusRemoteJid(msg);
+    if (from !== STATUS_JID) return false;
 
     const posterJid = resolvePosterJid(sock, msg);
-    if (!posterJid || posterJid === 'status@broadcast' || isOwnStatus(sock, posterJid)) {
+    if (!posterJid) {
+      console.warn('⚠️ [STATUS] Skipping status without a resolvable poster JID:', msg?.key?.id || 'unknown-id');
       return true;
     }
 
+    if (posterJid === STATUS_JID || isOwnStatus(sock, posterJid)) {
+      return true;
+    }
+
+    const statusKey = buildStatusKey(msg, posterJid);
     const posterNumber = sanitizeNumberDigits(posterJid.split('@')[0] || '');
     const randomEmoji = STATUS_REACTIONS[Math.floor(Math.random() * STATUS_REACTIONS.length)];
     const targetJid = resolveOwnerJid(sock);
 
+    if (!targetJid) {
+      console.warn('⚠️ [STATUS] Skipping status intercept because no owner JID is configured.');
+      return true;
+    }
+
     try {
       logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.cyan('trying to leave a view'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
-      await sock.readMessages([msg.key]);
+      if (typeof sock.readMessages === 'function') {
+        await sock.readMessages([statusKey]);
+      }
       logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.green('view done now liking and reacting'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
       await sock.sendMessage(
-        'status@broadcast',
-        { react: { text: randomEmoji, key: msg.key } },
+        STATUS_JID,
+        { react: { text: randomEmoji, key: statusKey } },
         { statusJidList: [posterJid] }
       );
     } catch (error) {
       console.error('⚠️ [STATUS] Auto view/react failed:', error.message || error);
     }
 
-    const messageData = msg.message?.ephemeralMessage?.message || msg.message || {};
+    const messageData = unwrapMessage(msg.message || {});
     const messageType = detectMessageType(messageData);
     const body = (
       messageType === 'conversation'
@@ -187,14 +263,14 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
 
     if (['imageMessage', 'videoMessage', 'audioMessage'].includes(messageType) && downloadMediaMessage) {
       try {
-        const buffer = await downloadMediaMessage(msg, 'buffer', {});
+        const buffer = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage?.bind(sock) });
         if (buffer) {
           if (messageType === 'imageMessage') {
             messageToSend = { image: buffer, caption, ai: true, contextInfo: jbContext };
           } else if (messageType === 'videoMessage') {
-            messageToSend = { video: buffer, caption, mimetype: 'video/mp4', ai: true, contextInfo: jbContext };
+            messageToSend = { video: buffer, caption, mimetype: messageData.videoMessage?.mimetype || 'video/mp4', ai: true, contextInfo: jbContext };
           } else {
-            messageToSend = { audio: buffer, mimetype: 'audio/mp4', ptt: true, ai: true, contextInfo: jbContext };
+            messageToSend = { audio: buffer, mimetype: messageData.audioMessage?.mimetype || 'audio/mp4', ptt: Boolean(messageData.audioMessage?.ptt), ai: true, contextInfo: jbContext };
           }
         }
       } catch (error) {
@@ -215,4 +291,16 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
   }
 }
 
-module.exports = { handleAutoStatusIntercept };
+module.exports = {
+  handleAutoStatusIntercept,
+  isStatusMessage: (msg) => resolveStatusRemoteJid(msg) === STATUS_JID,
+  _private: {
+    unwrapMessage,
+    detectMessageType,
+    resolvePosterJid,
+    resolveStatusRemoteJid,
+    normalizeUserJid,
+    buildStatusKey,
+    resolveOwnerJid
+  }
+};
