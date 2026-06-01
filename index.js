@@ -71,7 +71,7 @@ const path = require('path');
 const zlib = require('zlib');
 const os = require('os');
 const chalk = require('chalk');
-const { handleAutoStatusIntercept } = require('./utils/statusIntercept');
+const { handleAutoStatusIntercept, isStatusMessage } = require('./utils/statusIntercept');
 const { handleAntiDelete } = require('./utils/antiDelete');
 const { initializeDpAutonomous } = require('./utils/dpAutonomous');
 
@@ -334,12 +334,6 @@ async function startBot() {
       jid.includes('status.broadcast') ||
       jid.includes('@newsletter') ||
       jid.includes('@newsletter.');
-  };
-
-  const isStatusMessage = (msg = {}) => {
-    const directJid = msg?.key?.remoteJid;
-    const protocolJid = msg?.message?.protocolMessage?.key?.remoteJid;
-    return directJid === 'status@broadcast' || protocolJid === 'status@broadcast';
   };
 
   // Messages handler - Process only new messages
