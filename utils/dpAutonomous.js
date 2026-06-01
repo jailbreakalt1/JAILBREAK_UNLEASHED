@@ -1,10 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
+const { createTempFilePath, deleteTempFile, getTempDir } = require('./tempManager');
+
 const DB_PATH = path.join(__dirname, '../database/dpAutonomous.json');
 const DEFAULT_IMAGES_DIR = path.join(__dirname, '../images');
-const MIN_INTERVAL_MS = 20 * 60 * 1000;
-const MAX_INTERVAL_MS = 30 * 60 * 1000;
+const MIN_INTERVAL_MS = 9 * 60 * 1000;
+const MAX_INTERVAL_MS = 12 * 60 * 1000;
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 let rotationTimer = null;
@@ -122,10 +124,17 @@ async function runRotation(sock) {
 
   try {
     const nextImage = pickRandomImage(images, state.usedImages);
-    const imagePath = path.join(state.imagesDir || DEFAULT_IMAGES_DIR, nextImage);
+    const sourceImagePath = path.join(state.imagesDir || DEFAULT_IMAGES_DIR, nextImage);
+    const extension = path.extname(nextImage).slice(1) || 'jpg';
+    const tempImagePath = createTempFilePath('jbx-dp-autonomous', extension);
     const ownJid = `${(sock.user?.id || '').split(':')[0]}@s.whatsapp.net`;
 
-    await sock.updateProfilePicture(ownJid, { url: imagePath });
+    try {
+      fs.copyFileSync(sourceImagePath, tempImagePath);
+      await sock.updateProfilePicture(ownJid, { url: tempImagePath });
+    } finally {
+      deleteTempFile(tempImagePath);
+    }
 
     state.usedImages.push(nextImage);
     state.currentImage = nextImage;
@@ -140,7 +149,7 @@ async function runRotation(sock) {
     }
 
     saveState(state);
-    console.log(`[dp-autonomous] Updated profile picture with: ${nextImage}`);
+    console.log(`[dp-autonomous] Updated profile picture with: ${nextImage} via temp dir: ${getTempDir()}`);
   } catch (error) {
     console.error('[dp-autonomous] Failed to rotate profile picture:', error?.message || error);
   } finally {
@@ -202,13 +211,16 @@ function initializeDpAutonomous(sock) {
 
   if (state.nextRunAt && state.nextRunAt > Date.now()) {
     const delay = state.nextRunAt - Date.now();
-    if (rotationTimer) {
-      clearTimeout(rotationTimer);
+    // Keep only existing schedules that already fit the current 9-12 minute window.
+    if (delay <= MAX_INTERVAL_MS) {
+      if (rotationTimer) {
+        clearTimeout(rotationTimer);
+      }
+      rotationTimer = setTimeout(async () => {
+        await runRotation(sock);
+      }, delay);
+      return;
     }
-    rotationTimer = setTimeout(async () => {
-      await runRotation(sock);
-    }, delay);
-    return;
   }
 
   scheduleNextRotation(sock, state);

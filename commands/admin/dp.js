@@ -65,7 +65,7 @@ module.exports = {
         `• Total images: ${status.imagesCount}\n` +
         `• Used this cycle: ${status.usedImages.length}\n` +
         `• Next change: ${nextAt}\n` +
-        `• Interval: random 20-30 minutes`
+        `• Interval: random 9-12 minutes`
       );
       await extra.react('✅');
       return;
