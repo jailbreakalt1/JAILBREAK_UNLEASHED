@@ -1,13 +1,15 @@
 /**
  * WhatsApp MD Bot - Main Entry Point
  */
+const path = require('path');
+const { initializeTempSystem } = require('./utils/tempManager');
+
+const tempDir = initializeTempSystem();
 process.env.PUPPETEER_SKIP_DOWNLOAD = 'true';
 process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = 'true';
-process.env.PUPPETEER_CACHE_DIR = process.env.PUPPETEER_CACHE_DIR || '/tmp/puppeteer_cache_disabled';
+process.env.PUPPETEER_CACHE_DIR = path.join(tempDir, 'puppeteer_cache_disabled');
 
-const { initializeTempSystem } = require('./utils/tempManager');
 const { startCleanup } = require('./utils/cleanup');
-initializeTempSystem();
 startCleanup();
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
@@ -67,7 +69,6 @@ if (config.timezone && !process.env.TZ) process.env.TZ = config.timezone;
 const handler = require('./handler');
 const { wrapSendMessageWithUniversalContext } = require('./utils/messageContext');
 const fs = require('fs');
-const path = require('path');
 const zlib = require('zlib');
 const os = require('os');
 const chalk = require('chalk');

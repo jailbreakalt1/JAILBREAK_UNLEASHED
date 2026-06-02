@@ -13,10 +13,6 @@ const PROJECT_ROOT = process.cwd();
 // Centralized temp directory (relative to project root)
 const TEMP_DIR = path.join(PROJECT_ROOT, 'temp');
 
-// Compatibility temp directory for tools/deploys that expect a ./tmp folder.
-// Runtime temp writes still use TEMP_DIR so the bot has one canonical workspace.
-const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
-
 /**
  * Initialize temp directory system
  * MUST be called before any libraries that use temp directories are loaded
@@ -43,9 +39,8 @@ function initializeTempSystem() {
     process.env.TMP = tempDirAbsolute;
   }
   
-  // Ensure both temp directory names exist, while keeping TEMP_DIR canonical
+  // Ensure only the canonical temp directory exists.
   ensureDir(TEMP_DIR);
-  ensureDir(TMP_DIR);
   
   return TEMP_DIR;
 }
@@ -56,17 +51,7 @@ function initializeTempSystem() {
 function getTempDir() {
   // Ensure it exists
   ensureDir(TEMP_DIR);
-  ensureDir(TMP_DIR);
   return TEMP_DIR;
-}
-
-/**
- * Get the compatibility tmp directory path. Runtime temp files should prefer
- * getTempDir(), but this keeps ./tmp available for libraries that require it.
- */
-function getTmpDir() {
-  ensureDir(TMP_DIR);
-  return TMP_DIR;
 }
 
 /**
@@ -95,7 +80,8 @@ function deleteTempFile(filePath) {
       const resolvedPath = path.resolve(filePath);
       const tempDirResolved = path.resolve(TEMP_DIR);
       
-      if (resolvedPath.startsWith(tempDirResolved)) {
+      const relativePath = path.relative(tempDirResolved, resolvedPath);
+      if (relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)) {
         fs.unlinkSync(filePath);
         return true;
       } else {
@@ -125,11 +111,9 @@ function deleteTempFiles(filePaths) {
 module.exports = {
   initializeTempSystem,
   getTempDir,
-  getTmpDir,
   createTempFilePath,
   deleteTempFile,
   deleteTempFiles,
-  TEMP_DIR,
-  TMP_DIR
+  TEMP_DIR
 };
 
