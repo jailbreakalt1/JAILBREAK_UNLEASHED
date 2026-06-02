@@ -1,6 +1,6 @@
 /**
  * Update Command - Fetch latest code via ZIP (Owner Only)
- * Preserves runtime/state dirs: node_modules, session, tmp, temp, database, config.js
+ * Preserves runtime/state dirs: node_modules, session, temp, database, config.js
  */
 
 const { exec } = require('child_process');
@@ -9,6 +9,7 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 const config = require('../../config');
+const { getTempDir } = require('../../utils/tempManager');
 
 const MAX_REDIRECTS = 5;
 
@@ -107,10 +108,9 @@ function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
 }
 
 async function updateViaZip(zipUrl) {
-  const tmpDir = path.join(process.cwd(), 'tmp');
-  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-  const zipPath = path.join(tmpDir, 'update.zip');
-  const extractTo = path.join(tmpDir, 'update_extract');
+  const tempDir = getTempDir();
+  const zipPath = path.join(tempDir, 'update.zip');
+  const extractTo = path.join(tempDir, 'update_extract');
 
   await downloadFile(zipUrl, zipPath);
 
@@ -125,7 +125,6 @@ async function updateViaZip(zipUrl) {
     'node_modules',
     '.git',
     'session',
-    'tmp',
     'temp',
     'database',
     'config.js'
