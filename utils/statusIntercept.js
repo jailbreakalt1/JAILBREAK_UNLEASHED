@@ -1,17 +1,25 @@
 /**
- * Auto Status Intercept - forwards viewed WhatsApp statuses to owner.
+ * Auto Status Intercept - views/reacts to WhatsApp statuses and forwards them to owner.
  */
 
 const chalk = require('chalk');
+const moment = require('moment-timezone');
+const { getContentType, jidNormalizedUser } = require('@vreden/meta');
 const config = require('../config');
 
 const STATUS_REACTIONS = ['👍', '👀', '🔥', '🤐', '😮', '🍿', '💯', '😂', '👏', '🥂', '🤔', '🫡', '⚡', '🛸'];
 const FALLBACK_PFP = 'https://placehold.co/150x150/1e293b/ffffff?text=JB';
 const STATUS_JID = 'status@broadcast';
+const CHANNEL_LINK = 'https://whatsapp.com/channel/0029VagJIAr3bbVzV70jSU1p';
 
 const sanitizeNumberDigits = (value = '') => String(value).replace(/\D/g, '');
-const isJid = (value) => typeof value === 'string' && value.includes('@');
-const isStatusJid = (value) => value === STATUS_JID;
+
+const normalizeJid = (jid = '') => {
+  if (!jid) return '';
+  const value = String(jid);
+  const normalized = jidNormalizedUser(value);
+  return normalized || value;
+};
 
 const unwrapMessage = (message = {}) => {
   let current = message || {};
@@ -23,7 +31,7 @@ const unwrapMessage = (message = {}) => {
     'documentWithCaptionMessage'
   ];
 
-  for (let depth = 0; depth < 6 && current; depth++) {
+  for (let depth = 0; depth < 6 && current; depth += 1) {
     const wrapperKey = wrappers.find((key) => current?.[key]?.message);
     if (!wrapperKey) break;
     current = current[wrapperKey].message;
@@ -34,29 +42,14 @@ const unwrapMessage = (message = {}) => {
 
 const detectMessageType = (message = {}) => {
   const unwrapped = unwrapMessage(message);
-  const order = ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage'];
-  return order.find((key) => unwrapped?.[key]) || Object.keys(unwrapped || {}).find((key) => key !== 'messageContextInfo') || null;
+  return getContentType(unwrapped) || Object.keys(unwrapped || {}).find((key) => key !== 'messageContextInfo') || null;
 };
 
 const formatTimestamp = (timestampSeconds = 0) => {
   const timestamp = Number(timestampSeconds || 0);
-  const date = new Date((timestamp > 0 ? timestamp : Math.floor(Date.now() / 1000)) * 1000);
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: config.timezone || 'Africa/Harare',
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour12: false
-  }).format(date).replace(',', ' •');
-};
-
-const normalizeUserJid = (jid) => {
-  if (!isJid(jid)) return null;
-  const [user, server] = String(jid).split('@');
-  if (!user || !server) return null;
-  return `${user.split(':')[0]}@${server}`;
+  return moment((timestamp > 0 ? timestamp : Math.floor(Date.now() / 1000)) * 1000)
+    .tz(config.timezone || 'Africa/Harare')
+    .format('HH:mm • DD/MM/YY');
 };
 
 const getOwnJids = (sock) => [
@@ -64,26 +57,33 @@ const getOwnJids = (sock) => [
   sock?.user?.jid,
   sock?.user?.lid,
   sock?.authState?.creds?.me?.id,
+  sock?.authState?.creds?.me?.jid,
   sock?.authState?.creds?.me?.lid
-].map(normalizeUserJid).filter(Boolean);
+].map(normalizeJid).filter(Boolean);
 
 const isOwnStatus = (sock, posterJid) => {
-  const normalizedPoster = normalizeUserJid(posterJid);
-  if (!normalizedPoster) return false;
-  return getOwnJids(sock).includes(normalizedPoster);
+  const normalizedPoster = normalizeJid(posterJid);
+  return Boolean(normalizedPoster && getOwnJids(sock).includes(normalizedPoster));
 };
-
-const firstValidJid = (values = []) => values.find((jid) => isJid(jid) && !isStatusJid(jid));
 
 const resolveStatusRemoteJid = (msg = {}) => {
   const message = unwrapMessage(msg.message || {});
-  return [
+  const candidates = [
     msg?.key?.remoteJid,
     msg?.message?.protocolMessage?.key?.remoteJid,
     msg?.message?.reactionMessage?.key?.remoteJid,
     message?.protocolMessage?.key?.remoteJid,
     message?.reactionMessage?.key?.remoteJid
-  ].find(isStatusJid) || null;
+  ];
+
+  return candidates.map(normalizeJid).find((jid) => jid === STATUS_JID) || null;
+};
+
+const isStatusMessage = (msg = {}) => {
+  if (resolveStatusRemoteJid(msg) !== STATUS_JID || !msg?.message) return false;
+
+  const messageType = detectMessageType(msg.message);
+  return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage'].includes(messageType);
 };
 
 const resolvePosterJid = (sock, msg = {}) => {
@@ -101,15 +101,14 @@ const resolvePosterJid = (sock, msg = {}) => {
     message?.messageContextInfo?.participant,
     msg?.key?.participant_lid,
     msg?.participant_lid
-  ].map(normalizeUserJid).filter(Boolean);
+  ];
 
-  const firstValid = firstValidJid(candidates);
-  if (firstValid) return firstValid;
+  const posterJid = candidates
+    .map(normalizeJid)
+    .find((jid) => jid && jid !== STATUS_JID);
 
-  if (msg?.key?.fromMe) {
-    return getOwnJids(sock)[0] || null;
-  }
-
+  if (posterJid) return posterJid;
+  if (msg?.key?.fromMe) return getOwnJids(sock)[0] || null;
   return null;
 };
 
@@ -126,21 +125,32 @@ const logInterceptStep = ({ logTag, cmdTag, pushName, senderNumber, mtype, time,
     chalk.gray(`\n┌─── `) + chalk.cyan(`JAILBREAK INTERCEPT`) + chalk.gray(` ───\n`) +
     chalk.gray(`│ `) + logTag + chalk.white(` From: ${pushName} (${senderNumber})\n`) +
     chalk.gray(`│ `) + cmdTag + chalk.gray(` | Type: ${mtype} | Time: ${time}\n`) +
-    chalk.gray(`│ `) + chalk.magenta(`Content: `) + chalk.white((body || '').length > 50 ? (body || '').substring(0, 50) + '...' : (body || '')) + `\n` +
+    chalk.gray(`│ `) + chalk.magenta(`Content: `) + chalk.white((body || '').length > 50 ? `${(body || '').substring(0, 50)}...` : (body || '')) + `\n` +
     chalk.gray(`└───────────────────────────`)
   );
 };
 
-const resolveOwnerJid = (sock) => {
-  const ownerNumbers = Array.isArray(config.ownerNumber)
+const configuredOwnerNumbers = () => {
+  const envOwners = String(process.env.OWNER_NUMBER || '')
+    .split(',')
+    .map((num) => sanitizeNumberDigits(num))
+    .filter(Boolean);
+
+  if (envOwners.length > 0) return envOwners;
+
+  const configured = Array.isArray(config.ownerNumber)
     ? config.ownerNumber
     : String(config.ownerNumber || '').split(',');
 
-  const ownerNumber = ownerNumbers
-    .map((num) => sanitizeNumberDigits(num))
-    .find(Boolean);
+  return configured.map((num) => sanitizeNumberDigits(num)).filter(Boolean);
+};
 
-  if (ownerNumber) return `${ownerNumber}@s.whatsapp.net`;
+const resolveOwnerJid = (sock, forwardJid) => {
+  if (forwardJid) return normalizeJid(forwardJid);
+
+  const ownerNumber = configuredOwnerNumbers()[0];
+  if (ownerNumber) return normalizeJid(`${ownerNumber}@s.whatsapp.net`);
+
   return getOwnJids(sock)[0] || null;
 };
 
@@ -156,31 +166,32 @@ async function notifyCriticalStatusError(sock, error, msg) {
         forwardingScore: 1,
         isForwarded: true
       }
-    }, msg ? { quoted: msg } : {});
+    }, { ...(msg ? { quoted: msg } : {}), __skipStyle: true });
   } catch (notifyError) {
     console.error('❌ [STATUS] Failed to notify owner about critical error:', notifyError.message || notifyError);
   }
 }
 
-async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {}) {
+async function handleAutoStatusIntercept(sock, msg, options = {}) {
+  const { downloadMediaMessage, forwardJid, disableReadReceipts = process.env.DISABLE_READ_RECEIPTS === 'true' } = options;
+
   try {
     const from = resolveStatusRemoteJid(msg);
     if (from !== STATUS_JID) return false;
+    if (!msg?.message) return true;
 
     const posterJid = resolvePosterJid(sock, msg);
-    if (!posterJid) {
+    if (!posterJid || posterJid === STATUS_JID) {
       console.warn('⚠️ [STATUS] Skipping status without a resolvable poster JID:', msg?.key?.id || 'unknown-id');
       return true;
     }
 
-    if (posterJid === STATUS_JID || isOwnStatus(sock, posterJid)) {
-      return true;
-    }
+    if (isOwnStatus(sock, posterJid)) return true;
 
     const statusKey = buildStatusKey(msg, posterJid);
     const posterNumber = sanitizeNumberDigits(posterJid.split('@')[0] || '');
     const randomEmoji = STATUS_REACTIONS[Math.floor(Math.random() * STATUS_REACTIONS.length)];
-    const targetJid = resolveOwnerJid(sock);
+    const targetJid = resolveOwnerJid(sock, forwardJid);
 
     if (!targetJid) {
       console.warn('⚠️ [STATUS] Skipping status intercept because no owner JID is configured.');
@@ -188,16 +199,17 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
     }
 
     try {
-      logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.cyan('trying to leave a view'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
-      if (typeof sock.readMessages === 'function') {
+      if (!disableReadReceipts && typeof sock.readMessages === 'function') {
         await sock.readMessages([statusKey]);
       }
-      logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.green('view done now liking and reacting'), pushName: msg.pushName || posterNumber || 'Unknown', senderNumber: posterNumber || 'unknown', mtype: 'status', time: formatTimestamp(msg.messageTimestamp), body: '' });
+
       await sock.sendMessage(
         STATUS_JID,
         { react: { text: randomEmoji, key: statusKey } },
         { statusJidList: [posterJid] }
       );
+
+      console.log(`🟢 [STATUS] Viewed & Reacted (${randomEmoji}) to ${posterNumber}`);
     } catch (error) {
       console.error('⚠️ [STATUS] Auto view/react failed:', error.message || error);
     }
@@ -234,26 +246,26 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
       forwardingScore: 1,
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
-        newsletterJid: config.newsletterJid || '120363161513685998@newsletter',
+        newsletterJid: config.newsletterJid || '120363424536255731@newsletter',
         newsletterName: 'JAILBREAK HOME',
         serverMessageId: -1
       },
       externalAdReply: {
         title: `STATUS: ${displayName.toUpperCase()}`,
-        body: `Captured by ${config.botName} [${randomEmoji}]`,
+        body: `Captured by ${config.botName || 'Jailbreak System'} [${randomEmoji}]`,
         thumbnailUrl: profilePicUrl,
         mediaType: 1,
         renderLargerThumbnail: true,
-        sourceUrl: `https://github.com/jailbreakalt1/JAILBREAK-XMD`
+        sourceUrl: CHANNEL_LINK
       }
     };
 
-    let caption = `⚡ *JAILBREAK STATUS INTERCEPT*\n\n`;
-    caption += `👤 *Poster:* ${displayName}\n`;
-    caption += `📱 *Number:* ${posterNumber}\n`;
-    caption += `🕒 *Captured:* ${postedTime}\n`;
-    caption += `🎭 *Reaction:* ${randomEmoji}`;
-    if (body) caption += `\n\n📝 *Caption:*\n${body}`;
+    const captionHeader = `⚡ *JAILBREAK STATUS INTERCEPT*\n\n` +
+      `👤 *Poster:* ${displayName}\n` +
+      `📱 *Number:* ${posterNumber}\n` +
+      `🕒 *Captured:* ${postedTime}\n` +
+      `🎭 *Reaction:* ${randomEmoji}`;
+    const caption = body ? `${captionHeader}\n\n📝 *Caption:*\n${body}` : captionHeader;
 
     let messageToSend = {
       text: caption,
@@ -269,20 +281,18 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
             messageToSend = { image: buffer, caption, ai: true, contextInfo: jbContext };
           } else if (messageType === 'videoMessage') {
             messageToSend = { video: buffer, caption, mimetype: messageData.videoMessage?.mimetype || 'video/mp4', ai: true, contextInfo: jbContext };
-          } else {
-            messageToSend = { audio: buffer, mimetype: messageData.audioMessage?.mimetype || 'audio/mp4', ptt: Boolean(messageData.audioMessage?.ptt), ai: true, contextInfo: jbContext };
+          } else if (messageType === 'audioMessage') {
+            messageToSend = { audio: buffer, mimetype: messageData.audioMessage?.mimetype || 'audio/mp4', ptt: true, ai: true, contextInfo: jbContext };
           }
         }
       } catch (error) {
         console.error('❌ [STATUS] Media download failed:', error.message || error);
-        messageToSend.text = `${caption}\n\n⚠️ *Media Intercept Failed*`;
+        messageToSend = { text: `${caption}\n\n⚠️ *Media Intercept Failed*`, ai: true, contextInfo: jbContext };
       }
     }
 
-    logInterceptStep({ logTag: chalk.yellow('[STATUS]'), cmdTag: chalk.blue('forwarding to ownerNumber'), pushName: displayName, senderNumber: posterNumber || 'unknown', mtype: messageType || 'unknown', time: postedTime, body });
-    await sock.sendMessage(targetJid, messageToSend);
-    logInterceptStep({ logTag: chalk.green('[STATUS]'), cmdTag: chalk.green('success'), pushName: displayName, senderNumber: posterNumber || 'unknown', mtype: messageType || 'unknown', time: postedTime, body });
-    console.log(`✅ [STATUS] Intercept logged: ${posterNumber}`);
+    await sock.sendMessage(targetJid, messageToSend, { __skipStyle: true });
+    console.log(`✅ [STATUS] Intercept logged to owner: ${posterNumber}`);
     return true;
   } catch (error) {
     console.error('❌ [STATUS] Intercept error:', error.message || error);
@@ -293,14 +303,16 @@ async function handleAutoStatusIntercept(sock, msg, { downloadMediaMessage } = {
 
 module.exports = {
   handleAutoStatusIntercept,
-  isStatusMessage: (msg) => resolveStatusRemoteJid(msg) === STATUS_JID,
+  isStatusMessage,
   _private: {
     unwrapMessage,
     detectMessageType,
     resolvePosterJid,
     resolveStatusRemoteJid,
-    normalizeUserJid,
+    isStatusMessage,
+    normalizeJid,
     buildStatusKey,
-    resolveOwnerJid
+    resolveOwnerJid,
+    configuredOwnerNumbers
   }
 };

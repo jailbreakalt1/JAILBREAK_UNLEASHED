@@ -337,19 +337,23 @@ async function startBot() {
       jid.includes('@newsletter.');
   };
 
-  // Messages handler - Process only new messages
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+  // Messages handler - Process statuses first, then only new chat messages.
+  sock.ev.on('messages.upsert', async ({ messages = [], type }) => {
     // Process messages in the array
     for (const msg of messages) {
-      const from = msg?.key?.remoteJid || msg?.message?.protocolMessage?.key?.remoteJid;
-      if (!from) continue;
-
-      // Automatically process WhatsApp statuses before message-type and system-JID filtering.
-      // Status updates may arrive as "append" in some clients, so we don't gate them on "notify".
+      // WhatsApp statuses must be treated as statuses, not normal inbox/group messages.
+      // They can arrive as "append" and sometimes don't have the same fields as chat messages,
+      // so this trigger runs before the generic `from` guard, notify gate, and system-JID filter.
       if (isStatusMessage(msg)) {
-        await handleAutoStatusIntercept(sock, msg, { downloadMediaMessage });
+        await handleAutoStatusIntercept(sock, msg, {
+          downloadMediaMessage,
+          disableReadReceipts: process.env.DISABLE_READ_RECEIPTS === 'true'
+        });
         continue;
       }
+
+      const from = msg?.key?.remoteJid || msg?.message?.protocolMessage?.key?.remoteJid;
+      if (!from) continue;
 
       // Only process non-status "notify" type (new messages), skip "append" (old messages from history)
       if (type !== 'notify') continue;
