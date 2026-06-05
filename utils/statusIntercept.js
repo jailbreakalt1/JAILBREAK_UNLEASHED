@@ -79,6 +79,13 @@ const resolveStatusRemoteJid = (msg = {}) => {
   return candidates.map(normalizeJid).find((jid) => jid === STATUS_JID) || null;
 };
 
+const isStatusMessage = (msg = {}) => {
+  if (resolveStatusRemoteJid(msg) !== STATUS_JID || !msg?.message) return false;
+
+  const messageType = detectMessageType(msg.message);
+  return ['conversation', 'extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage'].includes(messageType);
+};
+
 const resolvePosterJid = (sock, msg = {}) => {
   const message = unwrapMessage(msg.message || {});
   const candidates = [
@@ -296,12 +303,13 @@ async function handleAutoStatusIntercept(sock, msg, options = {}) {
 
 module.exports = {
   handleAutoStatusIntercept,
-  isStatusMessage: (msg) => resolveStatusRemoteJid(msg) === STATUS_JID,
+  isStatusMessage,
   _private: {
     unwrapMessage,
     detectMessageType,
     resolvePosterJid,
     resolveStatusRemoteJid,
+    isStatusMessage,
     normalizeJid,
     buildStatusKey,
     resolveOwnerJid,
